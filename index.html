@@ -34,7 +34,9 @@
     <header class="topo">
       <div class="marca"><span class="logo">⇄</span> Conciliador <b>Mercado Livre</b></div>
       <nav class="abas" role="tablist">
-        <button class="aba ativa" data-aba="importar">Importar</button>
+        <button class="aba ativa" data-aba="painel">Painel</button>
+        <button class="aba" data-aba="divergencias">Divergências <span id="badge-div" class="badge" hidden></span></button>
+        <button class="aba" data-aba="importar">Importar</button>
         <button class="aba" data-aba="historico">Histórico</button>
         <button class="aba" data-aba="base">Base</button>
       </nav>
@@ -42,8 +44,41 @@
     </header>
 
     <main>
+      <!-- PAINEL -->
+      <div class="painel" id="aba-painel">
+        <div class="intro linha">
+          <div>
+            <h2>Painel de conciliação</h2>
+            <p id="info-conc">—</p>
+          </div>
+          <button id="btn-reconciliar" class="btn">↻ Reprocessar conciliação</button>
+        </div>
+        <div id="kpis-painel" class="kpis"></div>
+        <h3 class="secao">Por mês de venda</h3>
+        <p class="nota">Clique num número para abrir as vendas na aba Divergências.</p>
+        <div class="tabela-wrap"><table id="tab-mes-venda" class="tabela"></table></div>
+        <h3 class="secao">Por mês de recebimento <span class="nota">(relatório de liberações)</span></h3>
+        <div class="tabela-wrap"><table id="tab-mes-receb" class="tabela"></table></div>
+      </div>
+
+      <!-- DIVERGÊNCIAS -->
+      <div class="painel" id="aba-divergencias" hidden>
+        <div class="intro"><h2>Divergências</h2><p>Vendas que precisam de atenção. Clique numa linha para ver o detalhe e registrar a revisão.</p></div>
+        <div class="filtros">
+          <div id="chips-situacao" class="chips"></div>
+          <div class="filtros-linha">
+            <select id="f-mes"><option value="">Todos os meses</option></select>
+            <input type="search" id="f-busca" placeholder="Nº da venda, SKU ou título">
+            <label class="check"><input type="checkbox" id="f-comissao"> Só comissão acima da tabela</label>
+            <button id="btn-exportar" class="btn">Exportar CSV</button>
+          </div>
+        </div>
+        <div class="tabela-wrap"><table id="tab-div" class="tabela clicavel"></table></div>
+        <div class="paginacao"><span id="pag-info"></span><div><button id="pag-ant" class="btn">‹ Anterior</button><button id="pag-prox" class="btn">Próxima ›</button></div></div>
+      </div>
+
       <!-- IMPORTAR -->
-      <div class="painel" id="aba-importar">
+      <div class="painel" id="aba-importar" hidden>
         <div class="intro">
           <h2>Importar arquivos</h2>
           <p>Solte aqui os relatórios. O sistema reconhece sozinho cada um, grava o que é novo, atualiza o que mudou (ex.: status da venda) e ignora o que já está igual. Pode reimportar o mesmo arquivo sem duplicar.</p>
@@ -63,6 +98,7 @@
           <button id="btn-gravar-todos" class="btn primario">Gravar todos</button>
           <button id="btn-limpar" class="btn">Limpar lista</button>
         </div>
+        <p id="msg-conc" class="msg"></p>
       </div>
 
       <!-- HISTÓRICO -->
@@ -84,6 +120,16 @@
       </div>
     </main>
   </section>
+
+  <!-- DETALHE DA VENDA -->
+  <div id="drawer-fundo" class="drawer-fundo" hidden></div>
+  <aside id="drawer" class="drawer" hidden aria-label="Detalhe da venda">
+    <div class="drawer-topo">
+      <div><div class="nota">Venda</div><h2 id="dw-titulo" class="mono"></h2></div>
+      <button id="dw-fechar" class="btn link" aria-label="Fechar">✕</button>
+    </div>
+    <div id="dw-corpo" class="drawer-corpo"></div>
+  </aside>
 
   <template id="tpl-item">
     <article class="item">

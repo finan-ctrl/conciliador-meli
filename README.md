@@ -1,4 +1,4 @@
-# Conciliador Mercado Livre — Fase 1
+# Conciliador Mercado Livre
 
 Base de dados no Supabase + site com login para importar e gravar os relatórios:
 
@@ -13,14 +13,14 @@ Reimportar é seguro: linha nova entra, linha que mudou é atualizada (ex.: vend
 ## Estrutura
 
 ```
-index.html            site (login, Importar, Histórico, Base)
-css/style.css
-js/config.js          <- URL e chave do Supabase (preencher)
-js/parsers.js         leitura e normalização dos 3 arquivos
-js/app.js             telas e gravação
-supabase/schema.sql   tabelas, função de importação, segurança
-
+index.html    telas (login, Painel, Divergências, Importar, Histórico, Base)
+style.css
+config.js     URL e chave do Supabase
+parsers.js    leitura e normalização dos 3 arquivos
+app.js        telas, gravação e conciliação
+schema.sql    banco completo (rodar no SQL Editor; pode rodar de novo sem perder dados)
 ```
+Todos os arquivos ficam soltos na raiz do repositório.
 
 ## Passo a passo
 
@@ -63,6 +63,16 @@ Exporte os relatórios do período (pode sobrepor datas com a importação anter
 - `status_map` (status do ML → Conciliar / NOP / Avaliar; editável no Table Editor)
 - Visões `resumo_base` e `status_nao_mapeados`
 
+## Conciliação (fase 2)
+Roda sozinha depois de cada importação (ou no botão **Reprocessar conciliação** do Painel).
+
+- **Esperado** = coluna *Total (BRL)* do relatório de vendas (já desconta tarifas, frete, cancelamentos e reembolsos).
+- **Recebido** = soma das liberações − estornos vinculados à venda (pelo nº da operação; se não achar, pelo nº do pacote).
+- Pacote "Pacote de N produtos" é conciliado pela linha do pacote (as vendas filhas repetem os valores).
+- Situações: Conciliado · Aguardando liberação · Recebido a menor · Sem repasse · Recebido a maior · Em andamento (devolução/reclamação aberta) · Status novo.
+- Comissão cobrada × `comissao_tabela` (não vale para devoluções, cuja tarifa inclui o frete de retorno).
+- Revisão manual (Resolvido / Contestado no ML / Reabrir) com justificativa; se o valor mudar depois, a revisão aparece como desatualizada.
+- Ajustes em `parametros` (tolerância R$, dias de espera da liberação) e `comissao_tabela` pelo Table Editor.
+
 ## Próximas fases
-- **Fase 2:** motor de conciliação (rateio por pacote, NOP com estorno integral, diferença positiva como alerta, comissão cobrada × tabela), painel por mês de venda e por mês de recebimento, fila de divergências.
-- **Fase 3:** revisão manual com justificativa, visão de caixa (liberado × sacado), exportação Excel, fluxo de pedido de acesso com aprovação.
+- **Fase 3:** visão de caixa (liberado × sacado × saldo no extrato), conferência das liberações contra o extrato, fluxo de pedido de acesso com aprovação.
