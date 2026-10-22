@@ -35,6 +35,7 @@
       <div class="marca"><span class="logo">⇄</span> Conciliador <b>Mercado Livre</b></div>
       <nav class="abas" role="tablist">
         <button class="aba ativa" data-aba="painel">Painel</button>
+        <button class="aba" data-aba="analise">Análise</button>
         <button class="aba" data-aba="divergencias">Divergências <span id="badge-div" class="badge" hidden></span></button>
         <button class="aba" data-aba="importar">Importar</button>
         <button class="aba" data-aba="historico">Histórico</button>
@@ -59,6 +60,32 @@
         <div class="tabela-wrap"><table id="tab-mes-venda" class="tabela"></table></div>
         <h3 class="secao">Por mês de recebimento <span class="nota">(relatório de liberações)</span></h3>
         <div class="tabela-wrap"><table id="tab-mes-receb" class="tabela"></table></div>
+      </div>
+
+      <!-- ANÁLISE -->
+      <div class="painel" id="aba-analise" hidden>
+        <div class="intro"><h2>Análise</h2><p>Da venda ao dinheiro na conta: quanto foi vendido, quanto o Mercado Livre e o Mercado Pago cobraram, quanto foi repassado e se tudo confere.</p></div>
+        <div class="filtros">
+          <div class="filtros-linha">
+            <div class="segmento" id="an-agrupar" role="group" aria-label="Agrupar por">
+              <button data-v="mes" class="on">Mês</button><button data-v="produto">Produto</button><button data-v="tipo">Tipo de anúncio</button><button data-v="venda">Venda a venda</button>
+            </div>
+            <select id="an-mes"><option value="">Todos os meses</option></select>
+            <select id="an-tipo"><option value="">Todos os anúncios</option><option>Clássico</option><option>Premium</option></select>
+            <input type="search" id="an-busca" placeholder="Nº da venda, SKU ou título">
+            <button id="an-limpar" class="btn link">Limpar filtros</button>
+          </div>
+        </div>
+        <div id="an-checks" class="checks"></div>
+        <div class="an-grade">
+          <section class="bloco"><h3>Da venda ao repasse</h3><div id="an-cascata" class="cascata"></div></section>
+          <section class="bloco"><h3>Tarifas cobradas nas liberações <span class="nota">(Mercado Pago, por tipo)</span></h3><div id="an-tarifas" class="cascata"></div>
+            <p class="nota" style="margin-top:8px">Comissão ML + Parcelamento + Custo Mercado Pago = "Tarifa de venda e impostos" do relatório de vendas.</p></section>
+        </div>
+        <h3 class="secao" id="an-titulo-tab">Detalhamento</h3>
+        <p class="nota" id="an-dica"></p>
+        <div class="tabela-wrap"><table id="an-tab" class="tabela clicavel"></table></div>
+        <div class="paginacao" id="an-pag" hidden><span id="an-pag-info"></span><div><button id="an-ant" class="btn">‹ Anterior</button><button id="an-prox" class="btn">Próxima ›</button></div></div>
       </div>
 
       <!-- DIVERGÊNCIAS -->

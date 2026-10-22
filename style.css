@@ -70,7 +70,7 @@ input:focus, select:focus, .btn:focus-visible { outline: 2px solid var(--accent)
 .aba.ativa { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .usuario { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
 
-main { max-width: 1320px; margin: 0 auto; padding: 24px; }
+main { max-width: 1440px; margin: 0 auto; padding: 24px; }
 .intro { margin-bottom: 16px; } .intro p { max-width: 720px; }
 
 .drop { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 28px 16px; border: 2px dashed var(--line);
@@ -179,3 +179,33 @@ main { max-width: 1320px; margin: 0 auto; padding: 24px; }
 .mini td, .mini th { padding: 6px 8px; }
 @media (max-width: 640px) { .drawer-topo, .drawer-corpo { padding-left: 16px; padding-right: 16px; } .filtros-linha input[type=search] { min-width: 0; } }
 @media (max-width: 640px) { .abas { overflow-x: auto; scrollbar-width: none; } .aba { white-space: nowrap; flex-shrink: 0; } }
+
+/* ---------- Análise ---------- */
+.segmento { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.segmento button { font: inherit; font-size: 13px; border: 0; background: none; color: var(--ink-2); padding: 8px 12px; cursor: pointer; border-right: 1px solid var(--line); }
+.segmento button:last-child { border-right: 0; }
+.segmento button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.filtros-linha select { min-width: 150px; }
+.checks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.check-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); }
+.check-pill .ic { font-weight: 700; }
+.check-pill.ok .ic { color: var(--ok); } .check-pill.alerta .ic { color: var(--warn); } .check-pill.erro .ic { color: var(--err); }
+.an-grade { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+@media (max-width: 900px) { .an-grade { grid-template-columns: 1fr; } }
+.cascata { display: grid; grid-template-columns: minmax(150px, 1.2fr) 2fr auto auto; gap: 6px 12px; align-items: center; font-size: 13px; }
+.cascata .rot { color: var(--ink); }
+.cascata .rot.sub { color: var(--ink-2); padding-left: 12px; }
+.cascata .rot.forte, .cascata .val.forte { font-weight: 700; }
+.cascata .trilho { height: 12px; background: var(--bg); border-radius: 4px; position: relative; overflow: hidden; }
+.cascata .barra-c { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 4px; background: var(--ink-2); opacity: .55; }
+.cascata .barra-c.pos { background: var(--accent); opacity: 1; }
+.cascata .val { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cascata .pc { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 52px; }
+.cascata .sep { grid-column: 1 / -1; border-top: 1px solid var(--line); height: 0; }
+.ck { font-weight: 700; } .ck.ok { color: var(--ok); } .ck.no { color: var(--err); } .ck.na { color: var(--ink-2); font-weight: 400; }
+.tabela tr.tot td { font-weight: 700; background: var(--bg); }
+@media (max-width: 640px) { .cascata { grid-template-columns: 1fr auto auto; } .cascata .trilho { display: none; } }
+
+.tabela small.sub2 { display: block; font-size: 11px; color: var(--ink-2); font-weight: 400; }
+.tabela small.sub2.esq { text-align: left; overflow: hidden; text-overflow: ellipsis; }
+#an-tab td.trunc { max-width: 260px; }

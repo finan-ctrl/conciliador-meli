@@ -13,7 +13,7 @@ Reimportar é seguro: linha nova entra, linha que mudou é atualizada (ex.: vend
 ## Estrutura
 
 ```
-index.html    telas (login, Painel, Divergências, Importar, Histórico, Base)
+index.html    telas (login, Painel, Análise, Divergências, Importar, Histórico, Base)
 style.css
 config.js     URL e chave do Supabase
 parsers.js    leitura e normalização dos 3 arquivos
@@ -73,6 +73,12 @@ Roda sozinha depois de cada importação (ou no botão **Reprocessar conciliaç�
 - Comissão cobrada × `comissao_tabela` (não vale para devoluções, cuja tarifa inclui o frete de retorno).
 - Revisão manual (Resolvido / Contestado no ML / Reabrir) com justificativa; se o valor mudar depois, a revisão aparece como desatualizada.
 - Ajustes em `parametros` (tolerância R$, dias de espera da liberação) e `comissao_tabela` pelo Table Editor.
+
+## Análise
+Venda → tarifas → repasse, por mês, produto, tipo de anúncio ou venda a venda.
+- Cascata: receita − comissão e taxas ML − frete ± outros − custo das canceladas = líquido esperado × recebido; a diferença é aberta em aguardando / em devolução / divergente / a maior.
+- Tarifas das liberações destrinchadas por tipo (Comissão ML, Parcelamento, Custo Mercado Pago, Frete, Devolução), lidas de "Detalhes de tarifas".
+- Checagens: repasse confere, comissão × tabela, liberação presente no extrato.
 
 ## Próximas fases
 - **Fase 3:** visão de caixa (liberado × sacado × saldo no extrato), conferência das liberações contra o extrato, fluxo de pedido de acesso com aprovação.

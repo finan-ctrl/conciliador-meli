@@ -60,6 +60,7 @@
     $$('.painel').forEach((p) => { p.hidden = p.id !== 'aba-' + nome; });
     if (nome === 'painel') carregarPainel();
     if (nome === 'divergencias') carregarDivergencias();
+    if (nome === 'analise') carregarAnalise();
     if (nome === 'historico') carregarHistorico();
     if (nome === 'base') carregarBase();
   }
@@ -504,12 +505,13 @@
     $('#dw-titulo').textContent = numero;
     const corpo = $('#dw-corpo'); corpo.innerHTML = '<div class="vazio">Carregando…</div>';
 
-    const [c, v, libs, revs, filhos] = await Promise.all([
+    const [c, v, libs, revs, filhos, tars] = await Promise.all([
       sb.from('vw_conciliacao').select('*').eq('numero_venda', numero).maybeSingle(),
       sb.from('vendas_ml').select('numero_venda,tipo_linha,data_venda,status,descricao_status,titulo,variacao,sku,tipo_anuncio,unidades,preco_unitario,receita_produtos,receita_acrescimo,taxa_parcelamento,tarifa_venda,receita_envio,tarifa_envio,custo_diferenca_peso,descontos_bonus,cancelamentos_reembolsos,total,forma_entrega,data_entrega,reclamacao_aberta,em_mediacao,resultado_devolucao,motivo_resultado').eq('numero_venda', numero).maybeSingle(),
       sb.from('liberacoes_mp').select('data_liberacao,tipo_operacao,numero_liberacao,numero_operacao,valor_bruto,tarifas_total,valor_liquido,detalhes_tarifas,status_operacao').eq('venda_vinculada', numero).order('data_liberacao'),
       sb.from('revisoes').select('*').eq('numero_venda', numero).order('id', { ascending: false }),
       sb.from('vendas_ml').select('numero_venda,titulo,sku').eq('numero_pacote', numero).neq('numero_venda', numero),
+      sb.from('liberacao_tarifas').select('categoria,nome,valor').eq('venda_vinculada', numero),
     ]);
     if (c.error || !c.data) { corpo.innerHTML = `<div class="vazio">${esc((c.error && c.error.message) || 'Venda não encontrada na conciliação.')}</div>`; return; }
     const C = c.data; const V = v.data || {}; const LIB = libs.data || [];
@@ -576,6 +578,18 @@
           </tbody></table></div><p class="nota" style="margin-top:6px">Passe o mouse numa linha para ver o detalhe das tarifas.</p>` : '<p class="nota">Nenhuma liberação vinculada a esta venda.</p>'}
       </div>
 
+      ${(() => {
+        const T = {}; (tars.data || []).forEach((x) => { const k = x.categoria + '|' + x.nome; T[k] = (T[k] || 0) + n(x.valor); });
+        const ks = Object.keys(T).filter((k) => Math.abs(T[k]) >= 0.005).sort();
+        if (!ks.length) return '';
+        const tot = ks.reduce((a, k) => a + T[k], 0);
+        return `<div class="bloco"><h3>Tarifas cobradas nas liberações</h3><div class="conta">
+          ${ks.map((k) => { const [cat, nome] = k.split('|'); return `<span>${esc(nome)} <span class="nota">· ${esc(cat)}</span></span><span>${brl(T[k])}</span>`; }).join('')}
+          <span class="tot">Total de tarifas</span><span class="tot">${brl(tot)}</span>
+          <span>% sobre a receita</span><span>${n(V.receita_produtos) ? pctN(tot, n(V.receita_produtos)) : '—'}</span></div>
+          <p class="nota" style="margin-top:6px">Valores negativos = tarifa devolvida (cancelamento/estorno).</p></div>`;
+      })()}
+
       <div class="bloco">
         <h3>Histórico de status no ML</h3>
         ${(hist.data || []).length ? `<ul class="lista-rev">${hist.data.map((h) => `<li><b>${esc(h.status_novo || '—')}</b>${h.status_anterior ? ` <span class="nota">(antes: ${esc(h.status_anterior)})</span>` : ''}<div class="meta">${new Date(h.alterado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}${numsVenda.length > 1 ? ' · venda ' + esc(h.numero_venda) : ''}</div></li>`).join('')}</ul>` : '<p class="nota">Sem histórico.</p>'}
@@ -613,5 +627,194 @@
       if (!$('#aba-divergencias').hidden) carregarDivergencias();
       atualizarBadge();
     });
+  }
+  // ================================================================ ANÁLISE
+  const an = { agrupar: 'mes', mes: '', tipo: '', busca: '', pag: 0 };
+  const AN_POR_PAG = 50;
+  const CAT_ORDEM = ['Comissão ML', 'Parcelamento', 'Custo Mercado Pago', 'Frete', 'Devolução', 'Outras', 'Não detalhado'];
+  let anMesesOk = false;
+  const pctN = (v, base) => (base ? (100 * v / base).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%' : '—');
+  const pctTxt = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + '%');
+  const num0 = (r) => { const o = {}; for (const [k, v] of Object.entries(r)) o[k] = (typeof v === 'string' && k !== 'grupo' && k !== 'rotulo' && !isNaN(v) && v !== '') ? Number(v) : v; return o; };
+
+  $$('#an-agrupar button').forEach((b) => b.addEventListener('click', () => { an.agrupar = b.dataset.v; an.pag = 0; carregarAnalise(); }));
+  $('#an-mes').addEventListener('change', (e) => { an.mes = e.target.value; an.pag = 0; carregarAnalise(); });
+  $('#an-tipo').addEventListener('change', (e) => { an.tipo = e.target.value; an.pag = 0; carregarAnalise(); });
+  let tAn;
+  $('#an-busca').addEventListener('input', (e) => { clearTimeout(tAn); tAn = setTimeout(() => { an.busca = e.target.value.trim(); an.pag = 0; carregarAnalise(); }, 400); });
+  $('#an-limpar').addEventListener('click', () => { Object.assign(an, { mes: '', tipo: '', busca: '', pag: 0 }); carregarAnalise(); });
+  $('#an-ant').addEventListener('click', () => { an.pag--; carregarAnalise(); });
+  $('#an-prox').addEventListener('click', () => { an.pag++; carregarAnalise(); });
+
+  const limpaBusca = (b) => (b || '').replace(/[^\p{L}\p{N} \-]/gu, '').trim();
+  const rpcAnalise = (agrupar) => sb.rpc('analise', {
+    p_agrupar: agrupar, p_mes: an.mes || null, p_tipo: an.tipo || null, p_busca: limpaBusca(an.busca) || null,
+  });
+
+  let anSeq = 0;
+  async function carregarAnalise() {
+    const seq = ++anSeq;
+    $$('#an-agrupar button').forEach((b) => b.classList.toggle('on', b.dataset.v === an.agrupar));
+    if (!anMesesOk) {
+      const { data } = await sb.from('painel_mes_venda').select('mes_venda').order('mes_venda', { ascending: false });
+      $('#an-mes').innerHTML = '<option value="">Todos os meses</option>' +
+        (data || []).filter((r) => r.mes_venda).map((r) => `<option value="${r.mes_venda}">${mesBR(r.mes_venda)}</option>`).join('');
+      anMesesOk = true;
+    }
+    $('#an-mes').value = an.mes; $('#an-tipo').value = an.tipo; $('#an-busca').value = an.busca;
+    const t = $('#an-tab'); t.innerHTML = '<tr><td class="vazio">Carregando…</td></tr>';
+
+    const agr = an.agrupar === 'venda' ? 'mes' : an.agrupar;
+    const { data, error } = await rpcAnalise(agr);
+    if (seq !== anSeq) return;
+    if (error) { t.innerHTML = `<tr><td class="vazio">${esc(error.message)}</td></tr>`; return; }
+    const L = (data || []).map(num0);
+
+    // totais do recorte
+    const T = { tarifas_mp: {} };
+    L.forEach((r) => {
+      for (const [k, v] of Object.entries(r)) if (typeof v === 'number') T[k] = (T[k] || 0) + v;
+      for (const [c, v] of Object.entries(r.tarifas_mp || {})) T.tarifas_mp[c] = (T.tarifas_mp[c] || 0) + Number(v);
+    });
+    desenharChecks(T);
+    desenharCascata(T);
+    desenharTarifas(T);
+
+    if (an.agrupar === 'venda') return carregarVendaAVenda(seq);
+    $('#an-pag').hidden = true;
+    const nomeG = { mes: 'Mês da venda', produto: 'Produto (SKU)', tipo: 'Tipo de anúncio' }[an.agrupar];
+    $('#an-titulo-tab').textContent = `Detalhamento por ${nomeG.toLowerCase()}`;
+    $('#an-dica').textContent = 'Clique numa linha para ver venda a venda.';
+    if (!L.length) { t.innerHTML = '<tr><td class="vazio">Nada encontrado com esses filtros.</td></tr>'; return; }
+
+    const linha = (r, total) => {
+      const prob = (r.divergentes || 0) + (r.a_maior || 0) + (r.comissao_acima || 0);
+      const confere = prob
+        ? `<span class="ck no" title="${int(r.divergentes)} divergentes · ${int(r.a_maior)} a maior · ${int(r.comissao_acima)} comissão acima">⚠ ${int(prob)}</span>`
+        : '<span class="ck ok">✓ OK</span>';
+      const rot = total ? 'Total' : (an.agrupar === 'mes' ? mesBR(r.grupo + '-01') : r.rotulo);
+      return `<tr${total ? ' class="tot"' : ` data-g="${esc(r.grupo)}"`}>
+        <td class="trunc" title="${esc(rot)}">${esc(rot)}</td>
+        <td class="n">${int(r.vendas)}<small class="sub2">${int(r.canceladas)} canc.</small></td>
+        <td class="n">${brl(r.receita)}</td>
+        <td class="n">${brl(r.comissao)}<small class="sub2">${pctN(-r.comissao, r.receita)} · tabela ${pctN(r.comissao_tabela, r.receita)}</small></td>
+        <td class="n">${brl(r.frete)}<small class="sub2">${pctN(-r.frete, r.receita)}</small></td>
+        <td class="n">${brl(r.outros)}</td><td class="n">${brl(r.custo_canceladas)}</td>
+        <td class="n"><b>${brl(r.esperado)}</b></td><td class="n">${brl(r.recebido)}</td><td class="n">${brlCor(r.diferenca)}</td>
+        <td class="n">${pctN(r.conciliadas, r.vendas)}</td><td>${confere}</td></tr>`;
+    };
+    t.innerHTML = `<thead><tr><th>${nomeG}</th><th class="n">Vendas</th><th class="n">Receita</th>
+      <th class="n" title="Cobrado × o que a tabela prevê">Comissão ML</th>
+      <th class="n">Frete</th><th class="n" title="Acréscimos, descontos, bônus, diferença de peso">Outros</th>
+      <th class="n" title="Resultado das vendas canceladas/devolvidas (custos que ficaram)">Custo canceladas</th>
+      <th class="n">Líquido esperado</th><th class="n">Recebido</th><th class="n">Diferença</th><th class="n">Conciliadas</th><th>Confere</th></tr></thead>
+      <tbody>${L.map((r) => linha(r)).join('')}</tbody><tfoot>${linha(T, true)}</tfoot>`;
+    $$('tbody tr[data-g]', t).forEach((tr) => tr.addEventListener('click', () => {
+      const g = tr.dataset.g;
+      if (an.agrupar === 'mes') an.mes = g + '-01';
+      else if (an.agrupar === 'tipo') { if (g !== '(pacotes)') an.tipo = g; }
+      else if (an.agrupar === 'produto') an.busca = g === '(pacotes)' ? 'Pacote' : g;
+      an.agrupar = 'venda'; an.pag = 0; carregarAnalise();
+    }));
+  }
+
+  function desenharChecks(T) {
+    const pill = (ok, txt, nivel) => `<span class="check-pill ${ok ? 'ok' : nivel}"><span class="ic">${ok ? '✓' : '⚠'}</span>${txt}</span>`;
+    const div = T.divergentes || 0; const maior = T.a_maior || 0;
+    $('#an-checks').innerHTML = [
+      pill(!div, div ? `${int(div)} venda(s) com repasse a menor ou sem repasse` : `Repasse confere em ${pctN(T.conciliadas, T.vendas)} das vendas`, 'erro'),
+      pill(!maior, maior ? `${int(maior)} venda(s) recebidas a maior` : 'Nenhum repasse a maior', 'alerta'),
+      pill(!T.comissao_acima, T.comissao_acima ? `${int(T.comissao_acima)} venda(s) com comissão acima da tabela` : 'Comissão dentro da tabela', 'erro'),
+      pill(!T.com_lib_sem_extrato, T.com_lib_sem_extrato ? `${int(T.com_lib_sem_extrato)} venda(s) com liberação fora do extrato importado` : 'Liberações batem com o extrato', 'alerta'),
+      T.aguardando ? `<span class="check-pill"><span class="ic">⏳</span>${int(T.aguardando)} aguardando liberação</span>` : '',
+      T.em_andamento ? `<span class="check-pill"><span class="ic">↺</span>${int(T.em_andamento)} em devolução/reclamação</span>` : '',
+    ].join('');
+  }
+
+  function barras(alvo, linhas, base) {
+    const max = Math.max(base || 0, ...linhas.filter((l) => !l.sep).map((l) => Math.abs(l.v || 0))) || 1;
+    alvo.innerHTML = linhas.map((l) => {
+      if (l.sep) return '<div class="sep"></div>';
+      const w = Math.min(100, 100 * Math.abs(l.v || 0) / max);
+      return `<div class="rot ${l.cls || ''}">${esc(l.rot)}</div>
+        <div class="trilho" title="${esc(l.rot)}: ${brl(l.v)}${base ? ' · ' + pctN(Math.abs(l.v || 0), base) + ' da receita' : ''}"><div class="barra-c ${l.pos ? 'pos' : ''}" style="width:${w.toFixed(1)}%"></div></div>
+        <div class="val ${l.cls || ''}">${l.html || brl(l.v)}</div>
+        <div class="pc">${base && !l.semPct ? pctN(Math.abs(l.v || 0), base) : ''}</div>`;
+    }).join('');
+  }
+
+  function desenharCascata(T) {
+    const rec = T.receita || 0;
+    barras($('#an-cascata'), [
+      { rot: 'Receita das vendas', v: rec, pos: true, cls: 'forte' },
+      { rot: '− Comissão e taxas ML', v: T.comissao, cls: 'sub' },
+      { rot: '− Frete', v: T.frete, cls: 'sub' },
+      { rot: '± Outros (acréscimos, descontos, peso)', v: T.outros, cls: 'sub' },
+      { rot: '− Custo das canceladas/devolvidas', v: T.custo_canceladas, cls: 'sub' },
+      { sep: true },
+      { rot: '= Líquido esperado', v: T.esperado, pos: true, cls: 'forte' },
+      { rot: 'Recebido (repasse)', v: T.recebido, pos: true },
+      { rot: 'Diferença', v: T.diferenca, html: brlCor(T.diferenca), semPct: true, cls: 'forte' },
+      ...[['· aguardando liberação', T.dif_aguardando], ['· em devolução/reclamação', T.dif_em_andamento],
+          ['· divergente (cobrar do ML)', T.dif_divergente], ['· recebido a maior', T.dif_a_maior], ['· já revisado', T.dif_revisada]]
+        .filter(([, v]) => Math.abs(v || 0) >= 0.005)
+        .map(([rot, v]) => ({ rot, v, html: brlCor(v), semPct: true, cls: 'sub' })),
+    ], rec);
+  }
+
+  function desenharTarifas(T) {
+    const cats = Object.keys(T.tarifas_mp).sort((a, b) => (CAT_ORDEM.indexOf(a) + 99 * (CAT_ORDEM.indexOf(a) < 0)) - (CAT_ORDEM.indexOf(b) + 99 * (CAT_ORDEM.indexOf(b) < 0)));
+    if (!cats.length) { $('#an-tarifas').innerHTML = '<p class="nota">Sem tarifas nas liberações deste recorte.</p>'; return; }
+    const tot = cats.reduce((s, c) => s + T.tarifas_mp[c], 0);
+    barras($('#an-tarifas'), [
+      ...cats.map((c) => ({ rot: c, v: T.tarifas_mp[c] })),
+      { sep: true },
+      { rot: 'Total de tarifas', v: tot, cls: 'forte' },
+    ], T.receita || 0);
+  }
+
+  async function carregarVendaAVenda(seq) {
+    const t = $('#an-tab');
+    $('#an-titulo-tab').textContent = 'Venda a venda';
+    $('#an-dica').textContent = 'Clique numa venda para ver o detalhe completo.';
+    let q = sb.from('vw_conciliacao').select('numero_venda,data_venda,titulo,sku,status,acao,receita,tarifa_venda,tarifa_envio,esperado,repasse,diferenca,comissao_pct,comissao_tabela_pct,comissao_acima,lib_sem_extrato,qtd_operacoes,situacao_final', { count: 'exact' });
+    if (an.mes) q = q.eq('mes_venda', an.mes);
+    if (an.tipo) q = q.eq('tipo_anuncio', an.tipo);
+    const b = limpaBusca(an.busca);
+    if (b) q = q.or(`numero_venda.ilike.*${b}*,sku.ilike.*${b}*,titulo.ilike.*${b}*`);
+    const de = an.pag * AN_POR_PAG;
+    const { data, error, count } = await q.order('data_venda', { ascending: false }).range(de, de + AN_POR_PAG - 1);
+    if (seq !== anSeq) return;
+    if (error) { t.innerHTML = `<tr><td class="vazio">${esc(error.message)}</td></tr>`; return; }
+    if (!data.length) { t.innerHTML = '<tr><td class="vazio">Nada encontrado com esses filtros.</td></tr>'; $('#an-pag').hidden = true; return; }
+    const ck = (estado, titulo) => estado === null ? `<span class="ck na" title="${esc(titulo)}">—</span>`
+      : `<span class="ck ${estado ? 'ok' : 'no'}" title="${esc(titulo)}">${estado ? '✓' : '✗'}</span>`;
+    t.innerHTML = `<thead><tr><th>Nº da venda</th><th>Data</th><th>Produto</th><th class="n">Receita</th>
+      <th class="n" title="Cobrado · tabela">Comissão ML</th><th class="n">Frete</th><th class="n">Outros</th>
+      <th class="n">Esperado</th><th class="n">Recebido</th><th class="n">Diferença</th><th>Repasse</th><th>Comissão</th><th>Extrato</th><th>Situação</th></tr></thead><tbody>` +
+      data.map((r0) => {
+        const r = num0(r0);
+        const outros = r.esperado - r.receita - r.tarifa_venda - r.tarifa_envio;
+        const repOk = ['conciliado', 'resolvido'].includes(r.situacao_final) ? true : (['aguardando', 'em_andamento'].includes(r.situacao_final) ? null : false);
+        const comOk = r.comissao_tabela_pct === null || r.comissao_pct === null ? null : !r.comissao_acima;
+        const extOk = r.qtd_operacoes ? r.lib_sem_extrato === 0 : null;
+        return `<tr data-venda="${esc(r.numero_venda)}">
+          <td class="mono">${esc(r.numero_venda)}</td><td>${dataBR(r.data_venda)}</td>
+          <td class="trunc" title="${esc(r.titulo)}">${esc(r.titulo)}<small class="sub2 esq">${esc(r.status)}</small></td>
+          <td class="n">${brl(r.receita)}</td>
+          <td class="n">${brl(r.tarifa_venda)}<small class="sub2">${pctTxt(r.comissao_pct)} · tabela ${pctTxt(r.comissao_tabela_pct)}</small></td>
+          <td class="n">${brl(r.tarifa_envio)}</td><td class="n">${brl(outros)}</td>
+          <td class="n"><b>${brl(r.esperado)}</b></td><td class="n">${brl(r.repasse)}</td><td class="n">${brlCor(r.diferenca)}</td>
+          <td>${ck(repOk, repOk === null ? 'Ainda em aberto' : (repOk ? 'Repasse confere' : 'Repasse não confere'))}</td>
+          <td>${ck(comOk, comOk === null ? 'Sem comparação (cancelada, devolução ou pacote)' : (comOk ? 'Dentro da tabela' : 'Acima da tabela'))}</td>
+          <td>${ck(extOk, extOk === null ? 'Sem liberação' : (extOk ? 'Liberações no extrato' : `${r.lib_sem_extrato} liberação(ões) fora do extrato`))}</td>
+          <td>${sit(r.situacao_final)}</td></tr>`;
+      }).join('') + '</tbody>';
+    $$('tbody tr', t).forEach((tr) => tr.addEventListener('click', () => abrirDetalhe(tr.dataset.venda)));
+    const total = count || 0;
+    $('#an-pag').hidden = false;
+    $('#an-pag-info').textContent = `${int(de + 1)}–${int(Math.min(de + AN_POR_PAG, total))} de ${int(total)}`;
+    $('#an-ant').disabled = an.pag === 0;
+    $('#an-prox').disabled = de + AN_POR_PAG >= total;
   }
 })();
