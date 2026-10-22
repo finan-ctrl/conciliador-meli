@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conciliador Mercado Livre</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Aviso de configuração -->
+  <section id="tela-config" class="tela centro" hidden>
+    <div class="cartao estreito">
+      <h1>Falta configurar</h1>
+      <p>Abra <code>js/config.js</code> e preencha <b>SUPABASE_URL</b> e <b>SUPABASE_ANON_KEY</b> do seu projeto Supabase.</p>
+    </div>
+  </section>
+
+  <!-- Login -->
+  <section id="tela-login" class="tela centro" hidden>
+    <form id="form-login" class="cartao estreito">
+      <div class="marca"><span class="logo">⇄</span> Conciliador <b>Mercado Livre</b></div>
+      <label>E-mail <input type="email" id="login-email" required autocomplete="username"></label>
+      <label>Senha <input type="password" id="login-senha" required autocomplete="current-password"></label>
+      <button type="submit" class="btn primario">Entrar</button>
+      <button type="button" id="btn-esqueci" class="btn link">Esqueci minha senha</button>
+      <p id="login-msg" class="msg"></p>
+    </form>
+  </section>
+
+  <!-- App -->
+  <section id="tela-app" class="tela" hidden>
+    <header class="topo">
+      <div class="marca"><span class="logo">⇄</span> Conciliador <b>Mercado Livre</b></div>
+      <nav class="abas" role="tablist">
+        <button class="aba ativa" data-aba="importar">Importar</button>
+        <button class="aba" data-aba="historico">Histórico</button>
+        <button class="aba" data-aba="base">Base</button>
+      </nav>
+      <div class="usuario"><span id="usuario-email"></span><button id="btn-sair" class="btn link">Sair</button></div>
+    </header>
+
+    <main>
+      <!-- IMPORTAR -->
+      <div class="painel" id="aba-importar">
+        <div class="intro">
+          <h2>Importar arquivos</h2>
+          <p>Solte aqui os relatórios. O sistema reconhece sozinho cada um, grava o que é novo, atualiza o que mudou (ex.: status da venda) e ignora o que já está igual. Pode reimportar o mesmo arquivo sem duplicar.</p>
+        </div>
+        <label id="drop" class="drop">
+          <input type="file" id="arquivos" multiple accept=".xlsx,.xls,.csv">
+          <div class="drop-icone">⬆</div>
+          <div><b>Arraste os arquivos</b> ou clique para escolher</div>
+          <div class="fontes">
+            <span class="chip vendas">Vendas ML (.xlsx)</span>
+            <span class="chip liberacoes">Liberações Mercado Pago (.xlsx/.csv)</span>
+            <span class="chip extrato">Extrato Mercado Pago (.csv/.xlsx)</span>
+          </div>
+        </label>
+        <div id="fila"></div>
+        <div id="acoes-fila" class="acoes" hidden>
+          <button id="btn-gravar-todos" class="btn primario">Gravar todos</button>
+          <button id="btn-limpar" class="btn">Limpar lista</button>
+        </div>
+      </div>
+
+      <!-- HISTÓRICO -->
+      <div class="painel" id="aba-historico" hidden>
+        <div class="intro"><h2>Histórico de importações</h2></div>
+        <div class="tabela-wrap"><table id="tab-historico" class="tabela"></table></div>
+      </div>
+
+      <!-- BASE -->
+      <div class="painel" id="aba-base" hidden>
+        <div class="intro"><h2>O que está gravado</h2><p>Linhas e valores por mês em cada fonte.</p></div>
+        <div id="kpis" class="kpis"></div>
+        <div class="tabela-wrap"><table id="tab-base" class="tabela"></table></div>
+        <div id="box-status" class="cartao alerta" hidden>
+          <h3>Status do ML sem classificação</h3>
+          <p>Esses status apareceram nas vendas e ainda não têm ação (Conciliar / NOP / Avaliar) na tabela <code>status_map</code>.</p>
+          <table id="tab-status" class="tabela"></table>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <template id="tpl-item">
+    <article class="item">
+      <div class="item-topo">
+        <div>
+          <div class="item-nome"></div>
+          <div class="item-sub"></div>
+        </div>
+        <select class="item-fonte">
+          <option value="vendas">Vendas ML</option>
+          <option value="liberacoes">Liberações MP</option>
+          <option value="extrato">Extrato MP</option>
+        </select>
+      </div>
+      <div class="item-resumo"></div>
+      <ul class="item-avisos"></ul>
+      <div class="barra" hidden><div class="barra-fill"></div></div>
+      <div class="item-rodape">
+        <span class="item-status"></span>
+        <div>
+          <button class="btn item-remover">Remover</button>
+          <button class="btn primario item-gravar" disabled>Gravar</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/parsers.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
