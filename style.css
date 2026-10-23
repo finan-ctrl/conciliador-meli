@@ -209,3 +209,39 @@ main { max-width: 1440px; margin: 0 auto; padding: 24px; }
 .tabela small.sub2 { display: block; font-size: 11px; color: var(--ink-2); font-weight: 400; }
 .tabela small.sub2.esq { text-align: left; overflow: hidden; text-overflow: ellipsis; }
 #an-tab td.trunc { max-width: 260px; }
+
+/* ---------- detalhe como janela centralizada ---------- */
+.drawer { top: 3vh; bottom: 3vh; right: auto; left: 50%; transform: translateX(-50%); width: min(1080px, 96vw); border-radius: 14px; overflow: hidden; }
+.drawer-corpo { overflow-x: hidden; }
+.drawer-corpo > *, .dw-colunas > * { min-width: 0; }
+.dw-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .dw-colunas { grid-template-columns: 1fr; } }
+.drawer .grade { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.bloco.destaque .linha-sit { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dif-grande { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+body.modal-aberto { overflow: hidden; }
+.explica { margin: 10px 0 0; padding: 10px 12px; background: var(--info-soft); color: var(--ink); border-radius: 8px; font-size: 13px; }
+.det { margin-top: 10px; font-size: 13px; }
+.det summary { cursor: pointer; color: var(--accent); font-weight: 500; }
+pre.cru { white-space: pre-wrap; word-break: break-word; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0 0; max-height: 240px; overflow: auto; }
+.tabela .pos { color: var(--warn); } .tabela .neg { color: var(--err); }
+@media (max-width: 640px) { .drawer { top: 0; bottom: 0; width: 100vw; border-radius: 0; } }
+
+/* ---------- paginador ---------- */
+.paginacao { flex-wrap: wrap; }
+.pag-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pag-ctl label { display: flex; align-items: center; gap: 6px; font-weight: 400; font-size: 13px; }
+.pag-ctl select { padding: 5px 8px; min-width: 64px; }
+.pag-ctl .btn { padding: 5px 12px; }
+
+/* ---------- venda a venda compacto ---------- */
+td.conf { white-space: normal !important; min-width: 120px; }
+.mck { display: inline-block; font-size: 11.5px; margin: 1px 6px 1px 0; white-space: nowrap; }
+.mck.ok { color: var(--ok); } .mck.no { color: var(--err); font-weight: 700; } .mck.esp { color: var(--info); } .mck.na { color: var(--ink-2); }
+.tabela small.sub2 .sit { font-size: 11px; padding: 0 6px; margin-top: 2px; }
+.sit.aguardando_extrato { background: var(--info-soft); color: var(--info); }
+.sit.sem_extrato { background: var(--err-soft); color: var(--err); }
+#an-tab td.trunc { max-width: 240px; }
+#an-tab th, #an-tab td { padding: 7px 8px; font-size: 12.5px; }
+#an-tab td.trunc { max-width: 180px; }
+#an-tab td small.sub2 { font-size: 10.5px; }

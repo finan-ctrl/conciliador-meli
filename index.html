@@ -58,7 +58,7 @@
         <h3 class="secao">Por mês de venda</h3>
         <p class="nota">Clique num número para abrir as vendas na aba Divergências.</p>
         <div class="tabela-wrap"><table id="tab-mes-venda" class="tabela"></table></div>
-        <h3 class="secao">Por mês de recebimento <span class="nota">(relatório de liberações)</span></h3>
+        <h3 class="secao">Por mês de liberação <span class="nota">(Extrato Mercado Livre)</span></h3>
         <div class="tabela-wrap"><table id="tab-mes-receb" class="tabela"></table></div>
       </div>
 
@@ -79,13 +79,13 @@
         <div id="an-checks" class="checks"></div>
         <div class="an-grade">
           <section class="bloco"><h3>Da venda ao repasse</h3><div id="an-cascata" class="cascata"></div></section>
-          <section class="bloco"><h3>Tarifas cobradas nas liberações <span class="nota">(Mercado Pago, por tipo)</span></h3><div id="an-tarifas" class="cascata"></div>
-            <p class="nota" style="margin-top:8px">Comissão ML + Parcelamento + Custo Mercado Pago = "Tarifa de venda e impostos" do relatório de vendas.</p></section>
+          <section class="bloco"><h3>Tarifas descontadas nas liberações <span class="nota">(coluna "Detalhes de tarifas" do Extrato Mercado Livre)</span></h3><div id="an-tarifas" class="cascata"></div>
+            <p class="nota" style="margin-top:8px">Comissão ML + Parcelamento + Custo Mercado Pago = "Tarifa de venda e impostos" do relatório Vendas ML. Percentuais sobre o GMV.</p></section>
         </div>
         <h3 class="secao" id="an-titulo-tab">Detalhamento</h3>
         <p class="nota" id="an-dica"></p>
         <div class="tabela-wrap"><table id="an-tab" class="tabela clicavel"></table></div>
-        <div class="paginacao" id="an-pag" hidden><span id="an-pag-info"></span><div><button id="an-ant" class="btn">‹ Anterior</button><button id="an-prox" class="btn">Próxima ›</button></div></div>
+        <div class="paginacao" id="an-pag" hidden></div>
       </div>
 
       <!-- DIVERGÊNCIAS -->
@@ -101,7 +101,7 @@
           </div>
         </div>
         <div class="tabela-wrap"><table id="tab-div" class="tabela clicavel"></table></div>
-        <div class="paginacao"><span id="pag-info"></span><div><button id="pag-ant" class="btn">‹ Anterior</button><button id="pag-prox" class="btn">Próxima ›</button></div></div>
+        <div class="paginacao" id="pag-div" hidden></div>
       </div>
 
       <!-- IMPORTAR -->
@@ -116,8 +116,8 @@
           <div><b>Arraste os arquivos</b> ou clique para escolher</div>
           <div class="fontes">
             <span class="chip vendas">Vendas ML (.xlsx)</span>
-            <span class="chip liberacoes">Liberações Mercado Pago (.xlsx/.csv)</span>
-            <span class="chip extrato">Extrato Mercado Pago (.csv/.xlsx)</span>
+            <span class="chip liberacoes">Extrato Mercado Livre — liberações (.xlsx/.csv)</span>
+            <span class="chip extrato">Extrato Mercado Pago — conta (.csv/.xlsx)</span>
           </div>
         </label>
         <div id="fila"></div>
@@ -150,7 +150,7 @@
 
   <!-- DETALHE DA VENDA -->
   <div id="drawer-fundo" class="drawer-fundo" hidden></div>
-  <aside id="drawer" class="drawer" hidden aria-label="Detalhe da venda">
+  <aside id="drawer" class="drawer" hidden role="dialog" aria-modal="true" aria-label="Detalhe da venda">
     <div class="drawer-topo">
       <div><div class="nota">Venda</div><h2 id="dw-titulo" class="mono"></h2></div>
       <button id="dw-fechar" class="btn link" aria-label="Fechar">✕</button>
@@ -167,8 +167,8 @@
         </div>
         <select class="item-fonte">
           <option value="vendas">Vendas ML</option>
-          <option value="liberacoes">Liberações MP</option>
-          <option value="extrato">Extrato MP</option>
+          <option value="liberacoes">Extrato Mercado Livre</option>
+          <option value="extrato">Extrato Mercado Pago</option>
         </select>
       </div>
       <div class="item-resumo"></div>

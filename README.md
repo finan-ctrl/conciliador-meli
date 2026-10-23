@@ -5,8 +5,8 @@ Base de dados no Supabase + site com login para importar e gravar os relatórios
 | Fonte | Arquivo | Chave (o que evita duplicar) |
 |---|---|---|
 | Vendas ML | relatório de Vendas do Mercado Livre (.xlsx) | N.º de venda |
-| Liberações MP | relatório de liberações do Mercado Pago (.xlsx/.csv) | nº liberação + tipo + nº operação + item + data + valor |
-| Extrato MP | extrato da conta Mercado Pago (.csv/.xlsx) | data + tipo + reference_id + valor + saldo |
+| Extrato Mercado Livre | relatório de liberações (.xlsx/.csv) | nº liberação + tipo + nº operação + item + data + valor |
+| Extrato Mercado Pago | extrato da conta Mercado Pago (.csv/.xlsx) | data + tipo + reference_id + valor + saldo |
 
 Reimportar é seguro: linha nova entra, linha que mudou é atualizada (ex.: venda "Entregue" que virou devolução — fica no histórico de status), linha igual é ignorada.
 
@@ -67,9 +67,13 @@ Exporte os relatórios do período (pode sobrepor datas com a importação anter
 Roda sozinha depois de cada importação (ou no botão **Reprocessar conciliação** do Painel).
 
 - **Esperado** = coluna *Total (BRL)* do relatório de vendas (já desconta tarifas, frete, cancelamentos e reembolsos).
-- **Recebido** = soma das liberações − estornos vinculados à venda (pelo nº da operação; se não achar, pelo nº do pacote).
-- Pacote "Pacote de N produtos" é conciliado pela linha do pacote (as vendas filhas repetem os valores).
-- Situações: Conciliado · Aguardando liberação · Recebido a menor · Sem repasse · Recebido a maior · Em andamento (devolução/reclamação aberta) · Status novo.
+- **Liberado** = liberações − estornos do Extrato Mercado Livre vinculados à venda (pelo nº da operação; se não achar, pelo nº do pacote).
+- **Recebido** = lançamentos do **Extrato Mercado Pago** com o mesmo nº de liberação. A venda confere quando recebido = esperado.
+- **GMV** = receita de produtos de todas as vendas (inclui canceladas); GMV efetivo = sem canceladas/devolvidas.
+- **Data da entrega** = coluna "Data de entrega" do Vendas ML (ou "Chegou em…" do status); em devoluções, "O pacote chegou…" = retorno ao vendedor.
+- Pacote "Pacote de N produtos" é conciliado pela linha do pacote (as vendas filhas repetem os valores), mas conta como N vendas.
+- **Todas as contagens são por venda (pedido), nunca por linha do relatório.**
+- Situações: Conciliado · Aguardando liberação · Aguardando Extrato MP · Fora do Extrato MP · Recebido a menor · Sem repasse · Recebido a maior · Em andamento (devolução/reclamação aberta) · Status novo.
 - Comissão cobrada × `comissao_tabela` (não vale para devoluções, cuja tarifa inclui o frete de retorno).
 - Revisão manual (Resolvido / Contestado no ML / Reabrir) com justificativa; se o valor mudar depois, a revisão aparece como desatualizada.
 - Ajustes em `parametros` (tolerância R$, dias de espera da liberação) e `comissao_tabela` pelo Table Editor.
