@@ -40,6 +40,7 @@
         <button class="aba" data-aba="importar">Importar</button>
         <button class="aba" data-aba="historico">Histórico</button>
         <button class="aba" data-aba="base">Base</button>
+        <button class="aba" data-aba="status">De-para de status</button>
       </nav>
       <div class="usuario"><span id="usuario-email"></span><button id="btn-sair" class="btn link">Sair</button></div>
     </header>
@@ -60,6 +61,18 @@
         <div class="tabela-wrap"><table id="tab-mes-venda" class="tabela"></table></div>
         <h3 class="secao">Por mês de liberação <span class="nota">(Extrato Mercado Livre)</span></h3>
         <div class="tabela-wrap"><table id="tab-mes-receb" class="tabela"></table></div>
+        <div class="legenda">
+          <p><b>Como ler este quadro.</b> Cada linha é um mês de <b>liberação</b> no Extrato Mercado Livre (relatório de liberações), não de venda.</p>
+          <ul>
+            <li><b>Liberado</b>: dinheiro de vendas que o ML liberou na conta no mês (já descontadas as tarifas).</li>
+            <li><b>Estornos</b>: valores liberados que o ML tomou de volta (cancelamentos, devoluções, reclamações).</li>
+            <li><b>Líquido de vendas</b> = Liberado + Estornos.</li>
+            <li><b>Cashback</b>: créditos do ML. <b>Faturas ML</b>: pagamento de faturas do ML debitado da conta (tarifas cobradas depois, publicidade). <b>Saques</b>: transferências da conta Mercado Pago para o banco.</li>
+            <li><b>Saldo do mês</b>: soma de todas as colunas = quanto o saldo da conta Mercado Pago variou no mês por essas operações.</li>
+            <li><b>Sem venda na base</b>: liberações cuja venda não está no Vendas ML importado (normalmente vendas de um mês ainda não importado).</li>
+            <li><b>Fora do Extrato MP</b>: liberações de venda que ainda não aparecem no Extrato Mercado Pago importado (liberação + estorno que se anulam não contam). Costuma ser só o período depois do último extrato importado.</li>
+          </ul>
+        </div>
       </div>
 
       <!-- ANÁLISE -->
@@ -90,8 +103,9 @@
 
       <!-- DIVERGÊNCIAS -->
       <div class="painel" id="aba-divergencias" hidden>
-        <div class="intro"><h2>Divergências</h2><p>Vendas que precisam de atenção. Clique numa linha para ver o detalhe e registrar a revisão.</p></div>
+        <div class="intro"><h2>Divergências</h2><p>Comece por <b>A tratar</b>: são as vendas que precisam de ação. Clique numa linha para ver o detalhe e registrar a revisão.</p></div>
         <div class="filtros">
+          <div id="visoes" class="segmento visoes" role="tablist" aria-label="Visão"></div>
           <div id="chips-situacao" class="chips"></div>
           <div class="filtros-linha">
             <select id="f-mes"><option value="">Todos os meses</option></select>
@@ -102,6 +116,17 @@
         </div>
         <div class="tabela-wrap"><table id="tab-div" class="tabela clicavel"></table></div>
         <div class="paginacao" id="pag-div" hidden></div>
+      </div>
+
+      <!-- DE-PARA DE STATUS -->
+      <div class="painel" id="aba-status" hidden>
+        <div class="intro"><h2>De-para de status</h2>
+          <p>Cada status que o Mercado Livre usa recebe uma ação: <b>Conciliar</b> (a venda deve gerar dinheiro), <b>NOP</b> (cancelada ou devolvida — definitiva, sem ação) ou <b>Avaliar</b> (em andamento — acompanhar até encerrar). É a antiga aba "Status" da planilha.</p>
+          <p id="status-resumo"></p><p id="status-msg" class="msg"></p></div>
+        <h3 class="secao">Status encontrados nas vendas</h3>
+        <div class="tabela-wrap"><table id="tab-status-uso" class="tabela"></table></div>
+        <h3 class="secao">Regras por prefixo <span class="nota">(valem para todos os status que começam com o texto, ex.: "Devolvido no dia…")</span></h3>
+        <div class="tabela-wrap"><table id="tab-status-regras" class="tabela"></table></div>
       </div>
 
       <!-- IMPORTAR -->
@@ -141,7 +166,7 @@
         <div class="tabela-wrap"><table id="tab-base" class="tabela"></table></div>
         <div id="box-status" class="cartao alerta" hidden>
           <h3>Status do ML sem classificação</h3>
-          <p>Esses status apareceram nas vendas e ainda não têm ação (Conciliar / NOP / Avaliar) na tabela <code>status_map</code>.</p>
+          <p>Esses status apareceram nas vendas e ainda não têm ação (Conciliar / NOP / Avaliar). Classifique na aba <b>De-para de status</b>.</p>
           <table id="tab-status" class="tabela"></table>
         </div>
       </div>

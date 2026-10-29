@@ -63,6 +63,7 @@
     if (nome === 'analise') carregarAnalise();
     if (nome === 'historico') carregarHistorico();
     if (nome === 'base') carregarBase();
+    if (nome === 'status') carregarStatus();
   }
   $$('.aba').forEach((b) => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
 
@@ -273,8 +274,20 @@
     a_menor: 'Recebido a menor', sem_repasse: 'Sem repasse', sem_extrato: 'Fora do Extrato MP', a_maior: 'Recebido a maior',
     status_novo: 'Status novo', em_andamento: 'Em andamento', aguardando: 'Aguardando liberação',
     aguardando_extrato: 'Aguardando Extrato MP', contestado: 'Contestado no ML', resolvido: 'Resolvido', conciliado: 'Conciliado',
+    com_desconto: 'Com cupom/desconto', nop: 'Cancelada/devolvida',
   };
-  const SIT_PADRAO = ['a_menor', 'sem_repasse', 'sem_extrato', 'a_maior', 'status_novo'];
+  // Visões da fila: "A tratar" = tudo que precisa de ação
+  const VISOES = [
+    { k: 'tratar', rot: 'A tratar', sits: ['a_menor', 'sem_repasse', 'sem_extrato', 'a_maior', 'com_desconto', 'status_novo'] },
+    { k: 'aguardando', rot: 'Aguardando', sits: ['aguardando', 'aguardando_extrato'] },
+    { k: 'andamento', rot: 'Em andamento', sits: ['em_andamento'] },
+    { k: 'revisadas', rot: 'Revisadas', sits: ['contestado', 'resolvido'] },
+    { k: 'conciliadas', rot: 'Conciliadas', sits: ['conciliado'] },
+    { k: 'nop', rot: 'Canceladas/devolvidas', sits: ['nop'] },
+    { k: 'todas', rot: 'Todas', sits: [] },
+  ];
+  const SIT_TRATAR = VISOES[0].sits;
+  const SIT_PADRAO = SIT_TRATAR;
   const sit = (s, desat) => `<span class="sit ${s}">${esc(SIT[s] || s)}</span>${desat ? ' <span class="sit desatualizada" title="O valor mudou depois da revisão">revisão desatualizada</span>' : ''}`;
   const brlCor = (n) => {
     const v = Number(n || 0);
@@ -291,10 +304,10 @@
       if (alvoMsg) { alvoMsg.className = 'msg erro'; alvoMsg.textContent = 'Erro na conciliação: ' + error.message; }
       return null;
     }
-    const div = (data.a_menor || 0) + (data.sem_repasse || 0) + (data.sem_extrato || 0) + (data.status_novo || 0);
+    const div = SIT_TRATAR.reduce((a, k) => a + (data[k] || 0), 0);
     if (alvoMsg) {
       alvoMsg.className = 'msg ok';
-      alvoMsg.textContent = `✓ Conciliação atualizada: ${int(data.conciliado)} conciliadas · ${int(div)} divergentes · ${int(data.a_maior)} a maior · ${int((data.aguardando || 0) + (data.aguardando_extrato || 0))} aguardando liberação/extrato.`;
+      alvoMsg.textContent = `✓ Conciliação atualizada: ${int(data.conciliado)} conciliadas · ${int(div)} a tratar · ${int((data.aguardando || 0) + (data.aguardando_extrato || 0))} aguardando · ${int(data.nop)} canceladas/devolvidas.`;
     }
     atualizarBadge();
     return data;
@@ -309,7 +322,7 @@
   async function atualizarBadge() {
     // contagem por venda (pacote vale as vendas que contém)
     const { data } = await sb.from('vw_conciliacao').select('qtd_vendas')
-      .in('situacao_final', ['a_menor', 'sem_repasse', 'sem_extrato', 'status_novo']).range(0, 9999);
+      .in('situacao_final', SIT_TRATAR).range(0, 9999);
     const count = (data || []).reduce((a, r) => a + Number(r.qtd_vendas || 1), 0);
     const b = $('#badge-div'); b.hidden = !count; b.textContent = count || '';
   }
@@ -344,10 +357,10 @@
       $('#kpis-painel').innerHTML = `
         <div class="kpi"><span>Vendas no período</span><b>${int(T.vendas)}</b><small>GMV ${brl(T.gmv)} · ${int(T.canceladas)} canceladas/devolvidas</small></div>
         <div class="kpi"><span>Tarifas do ML</span><b>${pct(-T.tarifas, T.gmv_efetivo)}</b><small>${brl(-T.tarifas)} sobre o GMV efetivo (${brl(T.gmv_efetivo)})</small></div>
-        <div class="kpi ok"><span>Conciliadas</span><b>${pct(T.conciliadas, T.vendas)}</b><small>${int(T.conciliadas)} de ${int(T.vendas)} vendas</small></div>
-        <div class="kpi err"><span>Divergências em aberto</span><b>${int(T.divergentes)}</b><small>${brl(-T.valor_divergente)} a receber</small></div>
+        <div class="kpi ok"><span>Conciliadas</span><b>${pct(T.conciliadas, ativas)}</b><small>${int(T.conciliadas)} de ${int(ativas)} vendas ativas (sem canceladas/devolvidas)</small></div>
+        <div class="kpi err"><span>A tratar</span><b>${int(T.a_tratar)}</b><small>${brl(-T.valor_divergente)} a receber · ${int(T.com_desconto)} com cupom/desconto</small></div>
         <div class="kpi info"><span>Aguardando liberação / extrato</span><b>${int(T.aguardando)}</b><small>${brl(T.valor_aguardando)} previstos</small></div>
-        <div class="kpi warn"><span>Recebido a maior</span><b>${int(T.a_maior)}</b><small>${brl(T.valor_a_maior)}</small></div>`;
+        <div class="kpi"><span>Canceladas/devolvidas (NOP)</span><b>${int(T.nop)}</b><small>situação definitiva, sem ação</small></div>`;
       const lk = (n, mes, sits) => (n ? `<a class="num" data-mes="${mes || ''}" data-sit="${sits}">${int(n)}</a>` : '<span class="nota">0</span>');
       const linha = (r, total) => {
         const mes = total ? '' : r.mes_venda;
@@ -358,18 +371,20 @@
           <td class="n">${brl(r.esperado)}<small class="sub2">tarifas ${pct(-r.tarifas, r.gmv_efetivo)}</small></td><td class="n">${brl(r.recebido)}<small class="sub2">liberado ${brl(r.liberado)}</small></td>
           <td class="n">${lk(r.conciliadas, mes, 'conciliado')}</td>
           <td class="n">${lk(r.aguardando, mes, 'aguardando,aguardando_extrato')}</td>
-          <td class="n">${lk(r.divergentes, mes, 'a_menor,sem_repasse,sem_extrato,status_novo')}${r.valor_divergente ? `<small class="sub2">${brlCor(r.valor_divergente)}</small>` : ''}</td>
-          <td class="n">${lk(r.a_maior, mes, 'a_maior')}${r.valor_a_maior ? `<small class="sub2">${brl(r.valor_a_maior)}</small>` : ''}</td>
+          <td class="n">${lk(r.a_tratar, mes, SIT_TRATAR.join(','))}${r.valor_divergente ? `<small class="sub2">${brlCor(r.valor_divergente)}</small>` : ''}</td>
           <td class="n">${lk(r.em_andamento, mes, 'em_andamento')}</td>
+          <td class="n">${lk(r.nop, mes, 'nop')}</td>
           <td class="n">${lk(r.contestadas + r.resolvidas, mes, 'contestado,resolvido')}</td>
         </tr>`;
       };
       tv.innerHTML = `<thead><tr><th>Mês da venda</th><th class="n">Vendas</th><th class="n">GMV</th>
         <th class="n">Líquido esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">Recebido (Extrato MP)</th><th class="n">Conciliadas</th><th class="n">Aguardando</th>
-        <th class="n">Divergentes</th><th class="n">A maior</th><th class="n">Em andamento</th><th class="n">Revisadas</th></tr></thead>
+        <th class="n" title="Recebido a menor, sem repasse, fora do Extrato MP, a maior, com cupom/desconto, status novo">A tratar</th><th class="n">Em andamento</th><th class="n" title="Canceladas ou devolvidas: situação definitiva">Canceladas/ devolvidas</th><th class="n">Revisadas</th></tr></thead>
         <tbody>${L.map((r) => linha(r)).join('')}</tbody><tfoot>${linha(T, true)}</tfoot>`;
       $$('a.num', tv).forEach((a) => a.addEventListener('click', () => {
-        filtro.sits = new Set(a.dataset.sit.split(',')); filtro.mes = a.dataset.mes; filtro.pag = 0;
+        const sits = a.dataset.sit.split(',');
+        filtro.visao = (VISOES.find((v) => v.sits.includes(sits[0])) || VISOES.at(-1)).k;
+        filtro.sits = new Set(sits); filtro.mes = a.dataset.mes; filtro.pag = 0;
         abrirAba('divergencias');
       }));
     }
@@ -380,15 +395,17 @@
     const lr = (r, total) => `<tr><td>${total ? 'Total' : mesBR(r.mes_liberacao)}</td>
       <td class="n">${brl(r.liberado)}</td><td class="n">${brl(r.estornos)}</td><td class="n"><b>${brl(r.liquido_vendas)}</b></td>
       <td class="n">${brl(r.cashback)}</td><td class="n">${brl(r.faturas)}</td><td class="n">${brl(r.saques)}</td>
-      <td class="n" title="${int(r.qtd_sem_venda)} operações">${brl(r.sem_venda)}</td><td class="n">${int(r.qtd_sem_extrato)}</td></tr>`;
+      <td class="n"><b>${brl(r.saldo_mes)}</b></td>
+      <td class="n">${brl(r.sem_venda)}${r.qtd_sem_venda && Math.abs(r.sem_venda) >= 0.01 ? `<small class="sub2">${int(r.qtd_sem_venda)} operações</small>` : ''}</td>
+      <td class="n">${brl(r.valor_sem_extrato)}${r.qtd_sem_extrato ? `<small class="sub2">${int(r.qtd_sem_extrato)} liberações</small>` : ''}</td></tr>`;
     tr.innerHTML = `<thead><tr><th>Mês da liberação</th><th class="n">Liberado</th><th class="n">Estornos</th><th class="n">Líquido de vendas</th>
-      <th class="n">Cashback</th><th class="n">Faturas ML</th><th class="n">Saques</th><th class="n" title="Liberações cuja venda não está na base (ex.: vendas do mês ainda não importadas)">Sem venda na base</th>
-      <th class="n" title="Operações sem lançamento correspondente no Extrato Mercado Pago importado">Sem Extrato MP</th></tr></thead>
+      <th class="n">Cashback</th><th class="n">Faturas ML</th><th class="n">Saques</th><th class="n">Saldo do mês</th><th class="n">Sem venda na base</th>
+      <th class="n">Fora do Extrato MP</th></tr></thead>
       <tbody>${R.map((r) => lr(r)).join('')}</tbody><tfoot>${lr(TR, true)}</tfoot>`;
   }
 
   // ---------------------------------------------------------- divergências
-  const filtro = { sits: new Set(SIT_PADRAO), mes: '', busca: '', comissao: false, pag: 0, porPag: 50 };
+  const filtro = { visao: 'tratar', sits: new Set(SIT_PADRAO), mes: '', busca: '', comissao: false, pag: 0, porPag: 50 };
   let mesesCarregados = false;
 
   async function prepararFiltros() {
@@ -402,12 +419,23 @@
       data.forEach((r) => { cont[r.situacao_final] = (cont[r.situacao_final] || 0) + Number(r.qtd_vendas || 1); });
       if (data.length < 1000) break;
     }
-    filtro.totalVendas = filtro.comissao || filtro.busca ? null : [...filtro.sits].reduce((a, k) => a + (cont[k] || 0), 0);
-    $('#chips-situacao').innerHTML = Object.keys(SIT).map((k) =>
+    const total = Object.values(cont).reduce((a, x) => a + x, 0);
+    const soma = (sits) => (sits.length ? sits.reduce((a, k) => a + (cont[k] || 0), 0) : total);
+    filtro.totalVendas = filtro.comissao || filtro.busca ? null : (filtro.sits.size ? [...filtro.sits].reduce((a, k) => a + (cont[k] || 0), 0) : total);
+    $('#visoes').innerHTML = VISOES.map((v) =>
+      `<button class="${filtro.visao === v.k ? 'on' : ''} ${v.k === 'tratar' ? 'tratar' : ''}" data-v="${v.k}">${v.rot} <b>${int(soma(v.sits))}</b></button>`).join('');
+    $$('#visoes button').forEach((b) => b.addEventListener('click', () => {
+      const v = VISOES.find((x) => x.k === b.dataset.v);
+      filtro.visao = v.k; filtro.sits = new Set(v.sits); filtro.pag = 0; carregarDivergencias();
+    }));
+    const vis = VISOES.find((x) => x.k === filtro.visao) || VISOES[0];
+    $('#chips-situacao').hidden = vis.sits.length < 2;
+    $('#chips-situacao').innerHTML = vis.sits.length < 2 ? '' : '<span class="nota">Motivo:</span>' + vis.sits.map((k) =>
       `<button class="chip-f ${filtro.sits.has(k) ? 'on' : ''}" data-sit="${k}">${SIT[k]} <b>${int(cont[k] || 0)}</b></button>`).join('');
     $$('#chips-situacao .chip-f').forEach((b) => b.addEventListener('click', () => {
       const k = b.dataset.sit;
       if (filtro.sits.has(k)) filtro.sits.delete(k); else filtro.sits.add(k);
+      if (!filtro.sits.size) filtro.sits = new Set(vis.sits);
       filtro.pag = 0; carregarDivergencias();
     }));
     if (!mesesCarregados) {
@@ -436,7 +464,7 @@
     t.innerHTML = '<tr><td class="vazio">Carregando…</td></tr>';
     await prepararFiltros();
     const de = filtro.pag * filtro.porPag;
-    const { data, error, count } = await consulta('numero_venda,qtd_vendas,data_venda,data_entrega,status,titulo,sku,esperado,repasse,recebido,qtd_extrato,diferenca,situacao_final,revisao_desatualizada,comissao_acima,comissao_excedente,motivo', { count: 'exact' })
+    const { data, error, count } = await consulta('numero_venda,qtd_vendas,data_venda,data_entrega,status,titulo,sku,esperado,repasse,recebido,qtd_extrato,diferenca,situacao_final,revisao_desatualizada,comissao_acima,comissao_excedente,motivo,decisao,data_acao', { count: 'exact' })
       .range(de, de + filtro.porPag - 1);
     if (error) { t.innerHTML = `<tr><td class="vazio">${esc(error.message)}</td></tr>`; return; }
     if (!data.length) { t.innerHTML = '<tr><td class="vazio">Nada encontrado com esses filtros. 🎉</td></tr>'; }
@@ -450,7 +478,7 @@
           <td class="trunc" title="${esc(r.titulo)}">${esc(r.titulo)}</td>
           <td class="n">${brl(Number(r.esperado))}</td><td class="n">${r.qtd_extrato ? brl(Number(r.recebido)) : '<span class="nota">—</span>'}</td>
           <td class="n">${brlCor(r.diferenca)}</td>
-          <td>${sit(r.situacao_final, r.revisao_desatualizada)}${r.comissao_acima ? ' <span class="sit a_maior" title="Excedente ' + brl(Number(r.comissao_excedente)) + '">comissão ↑</span>' : ''}</td>
+          <td>${sit(r.situacao_final, r.revisao_desatualizada)}${r.decisao && r.data_acao ? `<small class="sub2 esq">${r.decisao === 'contestado' ? 'contestado' : 'revisado'} em ${dataBR(r.data_acao)}</small>` : ''}${r.comissao_acima ? ' <span class="sit a_maior" title="Excedente ' + brl(Number(r.comissao_excedente)) + '">comissão ↑</span>' : ''}</td>
         </tr>`).join('') + '</tbody>';
       $$('tbody tr', t).forEach((tr) => tr.addEventListener('click', () => abrirDetalhe(tr.dataset.venda)));
     }
@@ -468,7 +496,7 @@
     const b = $('#btn-exportar'); b.disabled = true; b.textContent = 'Exportando…';
     const cols = ['numero_venda', 'data_venda', 'mes_venda', 'status', 'acao', 'titulo', 'sku', 'tipo_anuncio', 'receita', 'tarifa_venda', 'tarifa_envio',
       'data_entrega', 'data_retorno', 'esperado', 'repasse', 'recebido', 'diferenca', 'situacao_final', 'motivo', 'comissao_pct', 'comissao_tabela_pct', 'comissao_excedente',
-      'ultima_liberacao', 'decisao', 'justificativa', 'revisado_por', 'revisado_em'];
+      'desconto_vendedor', 'tipo_desconto', 'ultima_liberacao', 'decisao', 'data_acao', 'justificativa', 'revisado_por', 'revisado_em'];
     const linhas = [];
     for (let de = 0; ; de += 1000) {
       const { data, error } = await consulta(cols.join(',')).range(de, de + 999);
@@ -585,7 +613,7 @@
             <div><span>Anúncio</span><b>${esc(V.tipo_anuncio || '—')}</b></div>
             <div><span>Unidades</span><b>${int(C.unidades || V.unidades)}</b></div>
             <div><span>Ação</span><b>${esc(C.acao || 'sem classificação')}</b></div>
-            <div><span>Comissão cobrada × tabela</span><b>${C.comissao_pct != null ? n(C.comissao_pct).toLocaleString('pt-BR') + '%' : '—'} × ${C.comissao_tabela_pct != null ? n(C.comissao_tabela_pct).toLocaleString('pt-BR') + '%' : '—'}</b></div>
+            <div><span>Comissão cobrada × tabela</span><b>${C.comissao_pct != null ? n(C.comissao_pct).toLocaleString('pt-BR') + '%' : '—'} × ${C.comissao_tabela_pct != null ? n(C.comissao_tabela_pct).toLocaleString('pt-BR') + '%' : '—'}</b>${n(C.desconto_vendedor) && C.comissao_pct != null ? `<span>sobre ${brl(n(C.receita) - n(C.desconto_vendedor))} (preço com desconto)</span>` : ''}</div>
             ${V.reclamacao_aberta === 'Sim' || V.em_mediacao === 'Sim' ? `<div><span>Reclamação / mediação</span><b>${esc(V.reclamacao_aberta || '—')} / ${esc(V.em_mediacao || '—')}</b></div>` : ''}
             ${V.resultado_devolucao ? `<div style="grid-column:1/-1"><span>Resultado da devolução</span><b>${esc(V.resultado_devolucao)}${V.motivo_resultado ? ' — ' + esc(V.motivo_resultado) : ''}</b></div>` : ''}
           </div>
@@ -596,6 +624,7 @@
           <h3>Esperado × recebido</h3>
           <div class="conta">
             ${linhaConta('GMV (receita de produtos)', V.receita_produtos)}
+            ${n(C.desconto_vendedor) ? `<span>Desconto pago pelo vendedor (${esc(C.tipo_desconto || 'cupom/campanha')}) <span class="nota">· não vem detalhado no Vendas ML</span></span><span>${brl(-n(C.desconto_vendedor))}</span>` : ''}
             ${linhaConta('Acréscimo pago pelo comprador', V.receita_acrescimo)}
             ${linhaConta('Taxa de parcelamento', V.taxa_parcelamento)}
             ${linhaConta('Tarifa de venda e impostos', V.tarifa_venda)}
@@ -639,18 +668,19 @@
 
       <div class="bloco">
         <h3>Revisão</h3>
-        ${C.situacao_final === 'conciliado' && !(revs.data || []).length ? '<p class="nota">Venda conciliada — nada a revisar.</p>' : `
+        ${['conciliado', 'nop'].includes(C.situacao_final) && !(revs.data || []).length ? `<p class="nota">${C.situacao_final === 'nop' ? 'Venda cancelada ou devolvida (NOP) — situação definitiva, nada a revisar.' : 'Venda conciliada — nada a revisar.'}</p>` : `
         <form id="form-rev" class="form-rev">
           <div class="opcoes">
             <label class="check"><input type="radio" name="decisao" value="resolvido" required> Resolvido</label>
             <label class="check"><input type="radio" name="decisao" value="contestado"> Contestado no ML</label>
             <label class="check"><input type="radio" name="decisao" value="reaberto"> Reabrir</label>
           </div>
+          <label class="campo-data">Data da ação <input type="date" name="data_acao" required max="${new Date().toISOString().slice(0, 10)}"></label>
           <textarea name="justificativa" required placeholder="Justificativa (ex.: nº do chamado no ML, explicação da diferença)"></textarea>
           <div><button class="btn primario" type="submit">Salvar revisão</button> <span id="rev-msg" class="msg"></span></div>
         </form>`}
         ${(revs.data || []).length ? `<ul class="lista-rev" style="margin-top:12px">${revs.data.map((r) => `<li><b>${esc(SIT[r.decisao] || (r.decisao === 'reaberto' ? 'Reaberto' : r.decisao))}</b> — ${esc(r.justificativa)}
-          <div class="meta">${esc(r.usuario_email || '')} · ${dtHora(r.criado_em)} · diferença na época ${brl(n(r.diferenca_na_revisao))}</div></li>`).join('')}</ul>` : ''}
+          <div class="meta">${r.data_acao ? `ação em <b>${dt(r.data_acao)}</b> · ` : ''}${esc(r.usuario_email || '')} · registrado ${dtHora(r.criado_em)} · diferença na época ${brl(n(r.diferenca_na_revisao))}</div></li>`).join('')}</ul>` : ''}
       </div>`;
 
     const form = $('#form-rev');
@@ -659,9 +689,11 @@
       const fd = new FormData(form); const msg = $('#rev-msg');
       const just = String(fd.get('justificativa') || '').trim();
       if (!just) { msg.className = 'msg erro'; msg.textContent = 'Escreva a justificativa.'; return; }
+      const dataAcao = String(fd.get('data_acao') || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dataAcao)) { msg.className = 'msg erro'; msg.textContent = 'Informe a data da ação.'; return; }
       msg.className = 'msg'; msg.textContent = 'Salvando…';
       const { error } = await sb.from('revisoes').insert({
-        numero_venda: numero, decisao: fd.get('decisao'), justificativa: just,
+        numero_venda: numero, decisao: fd.get('decisao'), justificativa: just, data_acao: dataAcao,
         diferenca_na_revisao: n(C.diferenca), situacao_na_revisao: C.situacao, usuario_email: usuario?.email || null,
       });
       if (error) { msg.className = 'msg erro'; msg.textContent = error.message; return; }
@@ -781,10 +813,11 @@
 
   function desenharChecks(T) {
     const pill = (ok, txt, nivel) => `<span class="check-pill ${ok ? 'ok' : nivel}"><span class="ic">${ok ? '✓' : '⚠'}</span>${txt}</span>`;
-    const div = T.divergentes || 0; const maior = T.a_maior || 0;
+    const div = (T.divergentes || 0) - (T.com_desconto || 0); const maior = T.a_maior || 0;
     $('#an-checks').innerHTML = [
       pill(!div, div ? `${int(div)} venda(s) com repasse a menor ou sem repasse` : `Repasse confere em ${pctN(T.conciliadas, T.vendas)} das vendas`, 'erro'),
       pill(!maior, maior ? `${int(maior)} venda(s) recebidas a maior` : 'Nenhum repasse a maior', 'alerta'),
+      pill(!T.com_desconto, T.com_desconto ? `${int(T.com_desconto)} venda(s) com cupom/desconto a conferir` : 'Nenhum desconto do vendedor a conferir', 'alerta'),
       pill(!T.comissao_acima, T.comissao_acima ? `${int(T.comissao_acima)} venda(s) com comissão acima da tabela` : 'Comissão dentro da tabela', 'erro'),
       T.aguardando ? `<span class="check-pill"><span class="ic">⏳</span>${int(T.aguardando)} aguardando liberação ou Extrato MP</span>` : '',
       T.em_andamento ? `<span class="check-pill"><span class="ic">↺</span>${int(T.em_andamento)} em devolução/reclamação</span>` : '',
@@ -809,6 +842,7 @@
       { rot: 'GMV (todas as vendas)', v: gmv, pos: true, cls: 'forte' },
       { rot: '− Vendas canceladas/devolvidas', v: -((T.gmv || 0) - (T.receita || 0)), cls: 'sub' },
       { rot: '= GMV efetivo', v: T.receita, pos: true },
+      { rot: '− Descontos pagos pelo vendedor (cupom/campanha)', v: -(T.desconto || 0), cls: 'sub' },
       { rot: '− Comissão e taxas ML', v: T.comissao, cls: 'sub' },
       { rot: '− Frete', v: T.frete, cls: 'sub' },
       { rot: '± Outros (acréscimos, descontos, peso)', v: T.outros, cls: 'sub' },
@@ -818,7 +852,8 @@
       { rot: 'Recebido (Extrato Mercado Pago)', v: T.recebido, pos: true },
       { rot: 'Diferença', v: T.diferenca, html: brlCor(T.diferenca), semPct: true, cls: 'forte' },
       ...[['· aguardando liberação/extrato', T.dif_aguardando], ['· em devolução/reclamação', T.dif_em_andamento],
-          ['· divergente (cobrar do ML)', T.dif_divergente], ['· recebido a maior', T.dif_a_maior], ['· já revisado', T.dif_revisada]]
+          ['· divergente (cobrar do ML)', T.dif_divergente], ['· recebido a maior', T.dif_a_maior], ['· já revisado', T.dif_revisada],
+          ['· canceladas/devolvidas (sem ação)', T.dif_nop]]
         .filter(([, v]) => Math.abs(v || 0) >= 0.005)
         .map(([rot, v]) => ({ rot, v, html: brlCor(v), semPct: true, cls: 'sub' })),
     ], gmv);
@@ -861,7 +896,7 @@
         const r = num0(r0);
         const outros = r.esperado - r.receita - r.tarifa_venda - r.tarifa_envio;
         const sf = r.situacao_final;
-        const repOk = ['conciliado', 'resolvido'].includes(sf) ? true : (['aguardando', 'aguardando_extrato', 'em_andamento'].includes(sf) ? 'esp' : false);
+        const repOk = sf === 'nop' ? null : ['conciliado', 'resolvido'].includes(sf) ? true : (['aguardando', 'aguardando_extrato', 'em_andamento'].includes(sf) ? 'esp' : false);
         const comOk = r.comissao_tabela_pct === null || r.comissao_pct === null ? null : !r.comissao_acima;
         const extOk = !r.qtd_operacoes ? null : (r.qtd_extrato > 0 ? true : (r.lib_apos_extrato ? 'esp' : (Math.abs(r.esperado) < 0.01 ? null : false)));
         return `<tr data-venda="${esc(r.numero_venda)}">
@@ -873,11 +908,77 @@
           <td class="n"><b>${brl(r.esperado)}</b></td>
           <td class="n">${r.qtd_extrato ? brl(r.recebido) : '<span class="nota">—</span>'}${Math.abs((r.repasse || 0) - (r.recebido || 0)) >= 0.01 && r.qtd_operacoes ? `<small class="sub2" title="Liberado no Extrato Mercado Livre">lib. ${brl(r.repasse)}</small>` : ''}</td>
           <td class="n">${brlCor(r.diferenca)}<small class="sub2">${sit(sf, r.revisao_desatualizada)}</small></td>
-          <td class="conf">${mini(repOk, 'Repasse', repOk === 'esp' ? 'Em aberto (aguardando)' : repOk ? 'Recebido = esperado' : 'Recebido diferente do esperado')}
+          <td class="conf">${mini(repOk, 'Repasse', repOk === null ? 'Cancelada/devolvida — sem ação' : repOk === 'esp' ? 'Em aberto (aguardando)' : repOk ? 'Recebido = esperado' : sf === 'com_desconto' ? 'Recebido confere, mas teve desconto do vendedor a conferir' : 'Recebido diferente do esperado')}
             ${mini(comOk, 'Comissão', comOk === null ? 'Sem comparação (cancelada, devolução ou pacote)' : comOk ? 'Dentro da tabela' : 'Acima da tabela')}
             ${mini(extOk, 'Extrato MP', extOk === null ? 'Sem liberação' : extOk === 'esp' ? 'Liberado depois do último extrato importado' : extOk ? 'Entrou no Extrato Mercado Pago' : 'Não entrou no Extrato Mercado Pago')}</td></tr>`;
       }).join('') + '</tbody>';
     $$('tbody tr', t).forEach((tr) => tr.addEventListener('click', () => abrirDetalhe(tr.dataset.venda)));
     paginador($('#an-pag'), an, count || 0, carregarAnalise, an.totalVendas);
+  }
+  // ================================================================ DE-PARA DE STATUS
+  const ACOES = { Conciliar: 'Conciliar — deve gerar dinheiro', NOP: 'NOP — cancelada/devolvida, sem ação', Avaliar: 'Avaliar — em andamento, acompanhar' };
+  const selAcao = (atual, id) => `<select class="sel-acao" data-id="${esc(id)}">${atual ? '' : '<option value="" selected>— sem classificação —</option>'}${Object.keys(ACOES).map((a) => `<option value="${a}" ${a === atual ? 'selected' : ''}>${ACOES[a]}</option>`).join('')}</select>`;
+
+  async function carregarStatus() {
+    const t1 = $('#tab-status-uso'); const t2 = $('#tab-status-regras');
+    t1.innerHTML = t2.innerHTML = '<tr><td class="vazio">Carregando…</td></tr>';
+    const [u, m] = await Promise.all([
+      sb.from('status_uso').select('*').order('vendas', { ascending: false }).range(0, 999),
+      sb.from('status_map').select('*').order('status'),
+    ]);
+    if (u.error) { t1.innerHTML = `<tr><td class="vazio">${esc(u.error.message)}</td></tr>`; return; }
+    const L = (u.data || []).sort((a, b) => (a.acao ? 1 : 0) - (b.acao ? 1 : 0) || Number(b.vendas) - Number(a.vendas));
+    const semClass = L.filter((r) => !r.acao).length;
+    $('#status-resumo').innerHTML = semClass
+      ? `<span class="sit status_novo">${int(semClass)} status sem classificação</span> — escolha a ação e salve; depois clique em <b>Reprocessar conciliação</b>.`
+      : '<span class="sit conciliado">Todos os status estão classificados</span>';
+    t1.innerHTML = `<thead><tr><th>Status no relatório do ML</th><th class="n">Vendas</th><th>Última venda</th><th>Ação</th><th>Regra usada</th><th></th></tr></thead><tbody>` +
+      L.map((r, i) => `<tr class="${r.acao ? '' : 'sem-class'}" data-status="${esc(r.status)}">
+        <td>${esc(r.status)}</td><td class="n">${int(r.vendas)}</td><td>${dataBR(r.ultima_venda)}</td>
+        <td>${selAcao(r.acao, 'u' + i)}</td>
+        <td class="nota">${r.regra_tipo === 'prefixo' ? `começa com "${esc(r.regra_status)}"` : r.regra_tipo === 'exato' ? 'texto exato' : '—'}</td>
+        <td><button class="btn salvar-st" hidden>Salvar</button></td></tr>`).join('') + '</tbody>';
+    $$('tbody tr', t1).forEach((tr) => {
+      const sel = $('select', tr); const bt = $('.salvar-st', tr);
+      sel.addEventListener('change', () => { bt.hidden = !sel.value; });
+      bt.addEventListener('click', async () => {
+        bt.disabled = true; bt.textContent = 'Salvando…';
+        const ok = await gravarStatus(tr.dataset.status, 'exato', sel.value);
+        bt.textContent = ok ? 'Salvo ✓' : 'Erro'; bt.disabled = false;
+        if (ok) { avisoReprocessar(); setTimeout(() => carregarStatus(), 600); }
+      });
+    });
+    const R = (m.data || []).filter((r) => r.regra === 'prefixo');
+    t2.innerHTML = `<thead><tr><th>Status que começam com…</th><th>Ação</th><th></th></tr></thead><tbody>` +
+      (R.length ? R.map((r, i) => `<tr data-status="${esc(r.status)}"><td>${esc(r.status)}…</td><td>${selAcao(r.acao, 'p' + i)}</td><td><button class="btn salvar-st" hidden>Salvar</button></td></tr>`).join('')
+        : '<tr><td class="vazio" colspan="3">Nenhuma regra por prefixo.</td></tr>') + '</tbody>';
+    $$('tbody tr[data-status]', t2).forEach((tr) => {
+      const sel = $('select', tr); const bt = $('.salvar-st', tr);
+      sel.addEventListener('change', () => { bt.hidden = false; });
+      bt.addEventListener('click', async () => {
+        bt.disabled = true;
+        const ok = await gravarStatus(tr.dataset.status, 'prefixo', sel.value);
+        bt.textContent = ok ? 'Salvo ✓' : 'Erro'; bt.disabled = false;
+        if (ok) { avisoReprocessar(); setTimeout(() => carregarStatus(), 600); }
+      });
+    });
+  }
+
+  async function gravarStatus(status, regra, acao) {
+    const { data: ex } = await sb.from('status_map').select('status').eq('status', status);
+    const r = ex && ex.length
+      ? await sb.from('status_map').update({ regra, acao }).eq('status', status)
+      : await sb.from('status_map').insert({ status, regra, acao });
+    if (r.error) { $('#status-msg').className = 'msg erro'; $('#status-msg').textContent = r.error.message; return false; }
+    return true;
+  }
+  function avisoReprocessar() {
+    $('#status-msg').className = 'msg ok';
+    $('#status-msg').innerHTML = 'Classificação salva. <button id="st-reproc" class="btn">↻ Reprocessar conciliação</button>';
+    $('#st-reproc').addEventListener('click', async () => {
+      $('#st-reproc').disabled = true;
+      const d = await rodarConciliacao($('#status-msg'));
+      if (d) carregarStatus();
+    });
   }
 })();
