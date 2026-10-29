@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Conciliador Mercado Livre</title>
+  <title>Conciliador Everest · Mercado Livre</title>
+  <link rel="icon" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
@@ -20,7 +21,11 @@
   <!-- Login -->
   <section id="tela-login" class="tela centro" hidden>
     <form id="form-login" class="cartao estreito">
-      <div class="marca"><span class="logo">⇄</span> Conciliador <b>Mercado Livre</b></div>
+      <div class="login-marca">
+        <img src="logo-everest.png" class="selo-grande" alt="Everest">
+        <div class="login-titulo">Conciliador <b>Everest</b></div>
+        <div class="login-sub"><img src="logo-ml.png" class="ico" alt="">Mercado Livre <span>×</span> <img src="logo-mp.png" class="ico" alt="">Mercado Pago</div>
+      </div>
       <label>E-mail <input type="email" id="login-email" required autocomplete="username"></label>
       <label>Senha <input type="password" id="login-senha" required autocomplete="current-password"></label>
       <button type="submit" class="btn primario">Entrar</button>
@@ -32,7 +37,8 @@
   <!-- App -->
   <section id="tela-app" class="tela" hidden>
     <header class="topo">
-      <div class="marca"><span class="logo">⇄</span> Conciliador <b>Mercado Livre</b></div>
+      <div class="marca"><img src="logo-everest.png" class="selo" alt="Everest"> Conciliador <b>Everest</b>
+        <span class="par-logos" title="Vendas no Mercado Livre × liquidação no Mercado Pago"><img src="logo-ml.png" class="ico" alt="Mercado Livre"><span>⇄</span><img src="logo-mp.png" class="ico" alt="Mercado Pago"></span></div>
       <nav class="abas" role="tablist">
         <button class="aba ativa" data-aba="painel">Painel</button>
         <button class="aba" data-aba="analise">Análise</button>
@@ -58,7 +64,7 @@
         <h3 class="secao">Por mês de venda</h3>
         <p class="nota">Clique num número para abrir as vendas na aba Divergências.</p>
         <div class="tabela-wrap"><table id="tab-mes-venda" class="tabela"></table></div>
-        <h3 class="secao">Por mês de liberação <span class="nota">(Extrato Mercado Livre)</span></h3>
+        <h3 class="secao"><img src="logo-ml.png" class="ico" alt="Mercado Livre"> Por mês de liberação <span class="nota">(Extrato Mercado Livre)</span></h3>
         <div class="tabela-wrap"><table id="tab-mes-receb" class="tabela"></table></div>
       </div>
 
@@ -79,7 +85,7 @@
         <div id="an-checks" class="checks"></div>
         <div class="an-grade">
           <section class="bloco"><h3>Da venda ao repasse</h3><div id="an-cascata" class="cascata"></div></section>
-          <section class="bloco"><h3>Tarifas descontadas nas liberações <span class="nota">(coluna "Detalhes de tarifas" do Extrato Mercado Livre)</span></h3><div id="an-tarifas" class="cascata"></div>
+          <section class="bloco"><h3><img src="logo-ml.png" class="ico" alt="Mercado Livre"> Tarifas descontadas nas liberações <span class="nota">(coluna "Detalhes de tarifas" do Extrato Mercado Livre)</span></h3><div id="an-tarifas" class="cascata"></div>
             <p class="nota" style="margin-top:8px">Comissão ML + Parcelamento + Custo Mercado Pago = "Tarifa de venda e impostos" do relatório Vendas ML. Percentuais sobre o GMV.</p></section>
         </div>
         <h3 class="secao" id="an-titulo-tab">Detalhamento</h3>
@@ -115,9 +121,9 @@
           <div class="drop-icone">⬆</div>
           <div><b>Arraste os arquivos</b> ou clique para escolher</div>
           <div class="fontes">
-            <span class="chip vendas">Vendas ML (.xlsx)</span>
-            <span class="chip liberacoes">Extrato Mercado Livre — liberações (.xlsx/.csv)</span>
-            <span class="chip extrato">Extrato Mercado Pago — conta (.csv/.xlsx)</span>
+            <span class="chip vendas"><img src="logo-ml.png" class="ico" alt="Mercado Livre"> Vendas ML (.xlsx)</span>
+            <span class="chip liberacoes"><img src="logo-ml.png" class="ico" alt="Mercado Livre"> Extrato Mercado Livre — liberações (.xlsx/.csv)</span>
+            <span class="chip extrato"><img src="logo-mp.png" class="ico" alt="Mercado Pago"> Extrato Mercado Pago — conta (.csv/.xlsx)</span>
           </div>
         </label>
         <div id="fila"></div>
@@ -162,7 +168,7 @@
     <article class="item">
       <div class="item-topo">
         <div>
-          <div class="item-nome"></div>
+          <div class="item-nome"><img class="ico item-ico" alt="" hidden><span></span></div>
           <div class="item-sub"></div>
         </div>
         <select class="item-fonte">

@@ -5,6 +5,11 @@
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const CFG = window.CONFIG || {};
   const NOMES = { vendas: 'Vendas ML', liberacoes: 'Extrato Mercado Livre', extrato: 'Extrato Mercado Pago' };
+  // logos: Vendas ML e Extrato ML = Mercado Livre; Extrato MP = Mercado Pago
+  const LOGO = { vendas: 'logo-ml.png', liberacoes: 'logo-ml.png', extrato: 'logo-mp.png' };
+  const ICO_ML = '<img src="logo-ml.png" class="ico" alt="Mercado Livre">';
+  const ICO_MP = '<img src="logo-mp.png" class="ico" alt="Mercado Pago">';
+  const icoFonte = (f) => (LOGO[f] ? `<img src="${LOGO[f]}" class="ico" alt="">` : '');
   const PARSER = { vendas: 'parseVendas', liberacoes: 'parseLiberacoes', extrato: 'parseExtrato' };
 
   const brl = (n) => (n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -95,7 +100,7 @@
       const f = { arquivo, el, estado: 'lendo', fonte: null, resultado: null };
       fila.push(f);
       $('#fila').prepend(el);
-      $('.item-nome', el).textContent = arquivo.name;
+      $('.item-nome span', el).textContent = arquivo.name;
       $('.item-sub', el).textContent = (arquivo.size / 1024 / 1024).toFixed(1) + ' MB';
       status(f, 'Lendo arquivo…');
       $('.item-remover', el).addEventListener('click', () => {
@@ -121,6 +126,7 @@
     f.fonte = fonte; f.estado = 'lendo';
     const el = f.el;
     el.className = 'item ' + fonte;
+    const ic = $('.item-ico', el); ic.src = LOGO[fonte]; ic.hidden = false;
     $('.item-fonte', el).value = fonte;
     $('.item-gravar', el).disabled = true;
     status(f, 'Lendo e conferindo linhas…');
@@ -223,7 +229,7 @@
       data.map((i) => `<tr>
         <td class="mono">${i.id}</td>
         <td>${new Date(i.criado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td>
-        <td><span class="chip ${i.fonte}">${NOMES[i.fonte]}</span></td>
+        <td><span class="chip ${i.fonte}">${icoFonte(i.fonte)} ${NOMES[i.fonte]}</span></td>
         <td title="${esc(i.arquivo)}">${esc(i.arquivo.length > 36 ? i.arquivo.slice(0, 34) + '…' : i.arquivo)}</td>
         <td>${dataBR(i.periodo_inicio)} – ${dataBR(i.periodo_fim)}</td>
         <td class="n">${int(i.linhas_lidas)}</td><td class="n">${int(i.novas)}</td>
@@ -249,12 +255,12 @@
     data.forEach((d) => { d.linhas = Number(d.linhas); d.valor = Number(d.valor || 0); tot[d.fonte].linhas += d.linhas; tot[d.fonte].valor += d.valor; });
 
     const rot = { vendas: ['Vendas', 'GMV'], liberacoes: ['Operações', 'Líquido de vendas (liberações − estornos)'], extrato: ['Lançamentos', 'Movimento líquido'] };
-    $('#kpis').innerHTML = fontes.map((f) => `<div class="kpi ${f}"><span>${NOMES[f]} · ${rot[f][0]}</span><b>${int(tot[f].linhas)}</b><span>${rot[f][1]}: ${brl(tot[f].valor)}</span></div>`).join('');
+    $('#kpis').innerHTML = fontes.map((f) => `<div class="kpi ${f}"><span>${icoFonte(f)} ${NOMES[f]} · ${rot[f][0]}</span><b>${int(tot[f].linhas)}</b><span>${rot[f][1]}: ${brl(tot[f].valor)}</span></div>`).join('');
 
     if (!data.length) { t.innerHTML = '<tr><td class="vazio">Base vazia. Importe os arquivos na aba Importar.</td></tr>'; }
     else {
       const UNID = { vendas: 'vendas', liberacoes: 'operações', extrato: 'lançamentos' };
-    t.innerHTML = `<thead><tr><th>Mês</th>${fontes.map((f) => `<th class="n">${NOMES[f]} · ${UNID[f]}</th><th class="n">${NOMES[f]} · valor</th>`).join('')}</tr></thead><tbody>` +
+    t.innerHTML = `<thead><tr><th>Mês</th>${fontes.map((f) => `<th class="n">${icoFonte(f)} ${NOMES[f]} · ${UNID[f]}</th><th class="n">${NOMES[f]} · valor</th>`).join('')}</tr></thead><tbody>` +
         meses.map((m) => `<tr><td>${mesBR(m)}</td>${fontes.map((f) => {
           const d = idx[f + '|' + m];
           return `<td class="n">${d ? int(d.linhas) : '—'}</td><td class="n">${d ? brl(Number(d.valor)) : '—'}</td>`;
@@ -365,7 +371,7 @@
         </tr>`;
       };
       tv.innerHTML = `<thead><tr><th>Mês da venda</th><th class="n">Vendas</th><th class="n">GMV</th>
-        <th class="n">Líquido esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">Recebido (Extrato MP)</th><th class="n">Conciliadas</th><th class="n">Aguardando</th>
+        <th class="n">Líquido esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">${ICO_MP} Recebido (Extrato MP)</th><th class="n">Conciliadas</th><th class="n">Aguardando</th>
         <th class="n">Divergentes</th><th class="n">A maior</th><th class="n">Em andamento</th><th class="n">Revisadas</th></tr></thead>
         <tbody>${L.map((r) => linha(r)).join('')}</tbody><tfoot>${linha(T, true)}</tfoot>`;
       $$('a.num', tv).forEach((a) => a.addEventListener('click', () => {
@@ -442,7 +448,7 @@
     if (!data.length) { t.innerHTML = '<tr><td class="vazio">Nada encontrado com esses filtros. 🎉</td></tr>'; }
     else {
       t.innerHTML = `<thead><tr><th>Nº da venda</th><th>Data</th><th>Status ML</th><th>Produto</th>
-        <th class="n">Esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">Recebido (Extrato MP)</th><th class="n">Diferença</th><th>Situação</th></tr></thead><tbody>` +
+        <th class="n">Esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">${ICO_MP} Recebido (Extrato MP)</th><th class="n">Diferença</th><th>Situação</th></tr></thead><tbody>` +
         data.map((r) => `<tr data-venda="${esc(r.numero_venda)}">
           <td class="mono">${esc(r.numero_venda)}${r.qtd_vendas > 1 ? `<small class="sub2 esq">pacote · ${r.qtd_vendas} vendas</small>` : ''}</td>
           <td>${dataBR(r.data_venda)}${r.data_entrega ? `<small class="sub2 esq">entregue ${dataBR(r.data_entrega)}</small>` : ''}</td>
@@ -604,9 +610,9 @@
             ${linhaConta('Diferença de peso/medidas', V.custo_diferenca_peso)}
             ${linhaConta('Descontos e bônus', V.descontos_bonus)}
             ${linhaConta('Cancelamentos e reembolsos', V.cancelamentos_reembolsos)}
-            <span class="tot">Esperado (Total do Vendas ML)</span><span class="tot">${brl(n(C.esperado))}</span>
-            <span>Liberado (Extrato Mercado Livre)</span><span>${brl(n(C.repasse))}</span>
-            <span><b>Recebido (Extrato Mercado Pago)</b></span><span><b>${C.qtd_extrato ? brl(n(C.recebido)) : '—'}</b></span>
+            <span class="tot">${ICO_ML} Esperado (Total do Vendas ML)</span><span class="tot">${brl(n(C.esperado))}</span>
+            <span>${ICO_ML} Liberado (Extrato Mercado Livre)</span><span>${brl(n(C.repasse))}</span>
+            <span><b>${ICO_MP} Recebido (Extrato Mercado Pago)</b></span><span><b>${C.qtd_extrato ? brl(n(C.recebido)) : '—'}</b></span>
             <span class="tot">Diferença (recebido − esperado)</span><span class="tot">${brlCor(C.diferenca)}</span>
           </div>
           <p class="nota" style="margin-top:8px">A venda confere quando o valor que <b>entrou no Extrato Mercado Pago</b> é igual ao esperado.</p>
@@ -614,7 +620,7 @@
       </div>
 
       <div class="bloco">
-        <h3>Liberações <span class="nota">(Extrato Mercado Livre)</span></h3>
+        <h3>${ICO_ML} Liberações <span class="nota">(Extrato Mercado Livre)</span></h3>
         ${LIB.length ? `<div class="tabela-wrap"><table class="tabela mini"><thead><tr><th>Data</th><th>Tipo</th><th>Nº liberação</th><th class="n">Bruto</th><th class="n">Tarifas</th><th class="n">Líquido</th></tr></thead><tbody>
           ${LIB.map((l) => `<tr><td>${dt(l.data_liberacao)}</td><td>${esc(l.tipo_operacao)}</td><td class="mono">${esc(l.numero_liberacao)}</td>
             <td class="n">${brl(n(l.valor_bruto))}</td><td class="n">${brl(n(l.tarifas_total))}</td><td class="n">${n(l.valor_liquido) < 0 ? `<span class="neg">${brl(n(l.valor_liquido))}</span>` : brl(n(l.valor_liquido))}</td></tr>`).join('')}
@@ -622,7 +628,7 @@
       </div>
 
       <div class="bloco">
-        <h3>Entradas no Extrato Mercado Pago <span class="nota">(mesmo nº de liberação)</span></h3>
+        <h3>${ICO_MP} Entradas no Extrato Mercado Pago <span class="nota">(mesmo nº de liberação)</span></h3>
         ${EXT.length ? `<div class="tabela-wrap"><table class="tabela mini"><thead><tr><th>Data</th><th>Lançamento</th><th>Nº</th><th class="n">Valor</th></tr></thead><tbody>
           ${EXT.map((e) => `<tr><td>${dt(e.data)}</td><td>${esc(e.tipo_transacao)}</td><td class="mono">${esc(e.reference_id)}</td><td class="n">${n(e.valor) < 0 ? `<span class="neg">${brl(n(e.valor))}</span>` : brl(n(e.valor))}</td></tr>`).join('')}
           </tbody><tfoot><tr><td colspan="3">Total recebido</td><td class="n">${brl(EXT.reduce((a, e) => a + n(e.valor), 0))}</td></tr></tfoot></table></div>`
@@ -768,7 +774,7 @@
       <th class="n" title="% sobre o GMV efetivo · % que a tabela prevê">Comissão ML</th>
       <th class="n">Frete</th><th class="n" title="Acréscimos, descontos, bônus, diferença de peso">Outros</th>
       <th class="n" title="Resultado das vendas canceladas/devolvidas (custos que ficaram)">Custo canceladas</th>
-      <th class="n">Líquido esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">Recebido (Extrato MP)</th><th class="n">Diferença</th><th class="n">Conciliadas</th><th>Confere</th></tr></thead>
+      <th class="n">Líquido esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">${ICO_MP} Recebido (Extrato MP)</th><th class="n">Diferença</th><th class="n">Conciliadas</th><th>Confere</th></tr></thead>
       <tbody>${L.map((r) => linha(r)).join('')}</tbody><tfoot>${linha(T, true)}</tfoot>`;
     $$('tbody tr[data-g]', t).forEach((tr) => tr.addEventListener('click', () => {
       const g = tr.dataset.g;

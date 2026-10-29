@@ -245,3 +245,23 @@ td.conf { white-space: normal !important; min-width: 120px; }
 #an-tab th, #an-tab td { padding: 7px 8px; font-size: 12.5px; }
 #an-tab td.trunc { max-width: 180px; }
 #an-tab td small.sub2 { font-size: 10.5px; }
+
+/* ---------- marca Everest e logos ML / MP ---------- */
+body::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: url('everest-marca-dagua.png') center 58% / min(58vmin, 520px) no-repeat; opacity: .07; }
+@media (prefers-color-scheme: dark) { body::before { opacity: .10; } }
+.tela { position: relative; z-index: 1; }
+.ico { height: 1.15em; width: auto; vertical-align: -0.22em; display: inline-block; }
+.selo { width: 30px; height: 30px; border-radius: 7px; object-fit: cover; }
+.marca { gap: 10px; }
+.par-logos { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 99px; font-size: 12px; color: var(--ink-2); }
+.par-logos .ico { height: 16px; vertical-align: 0; }
+.login-marca { display: grid; justify-items: center; gap: 8px; text-align: center; margin-bottom: 6px; }
+.selo-grande { width: 84px; height: 84px; border-radius: 18px; }
+.login-titulo { font-size: 20px; }
+.login-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; color: var(--ink-2); font-size: 13px; }
+.login-sub .ico { height: 18px; } .login-sub span { color: var(--ink-2); }
+.item-nome { display: flex; align-items: center; gap: 8px; } .item-nome .ico { height: 22px; }
+.chip .ico { height: 14px; vertical-align: -0.2em; }
+.kpi > span:first-child .ico, .secao .ico, .bloco h3 .ico { height: 18px; vertical-align: -0.25em; margin-right: 2px; }
+@media (max-width: 640px) { .par-logos { display: none; } }
