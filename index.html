@@ -39,7 +39,6 @@
         <button class="aba" data-aba="divergencias">Divergências <span id="badge-div" class="badge" hidden></span></button>
         <button class="aba" data-aba="importar">Importar</button>
         <button class="aba" data-aba="historico">Histórico</button>
-        <button class="aba" data-aba="base">Base</button>
         <button class="aba" data-aba="status">De-para de status</button>
       </nav>
       <div class="usuario"><span id="usuario-email"></span><button id="btn-sair" class="btn link">Sair</button></div>
@@ -57,22 +56,23 @@
         </div>
         <div id="kpis-painel" class="kpis"></div>
         <h3 class="secao">Por mês de venda</h3>
-        <p class="nota">Clique num número para abrir as vendas na aba Divergências.</p>
+        <p class="nota">Clique no mês para ver em que meses o valor dessas vendas entrou no Extrato Mercado Pago. Clique num número azul para abrir as vendas na aba Divergências.</p>
         <div class="tabela-wrap"><table id="tab-mes-venda" class="tabela"></table></div>
-        <h3 class="secao">Por mês de liberação <span class="nota">(Extrato Mercado Livre)</span></h3>
+        <h3 class="secao">Por mês <span class="nota">(Extrato Mercado Pago — onde o valor é confirmado)</span></h3>
         <div class="tabela-wrap"><table id="tab-mes-receb" class="tabela"></table></div>
         <div class="legenda">
-          <p><b>Como ler este quadro.</b> Cada linha é um mês de <b>liberação</b> no Extrato Mercado Livre (relatório de liberações), não de venda.</p>
+          <p><b>Como ler este quadro.</b> Cada linha é um mês do <b>Extrato Mercado Pago</b>: o que de fato entrou e saiu da conta.</p>
           <ul>
-            <li><b>Liberado</b>: dinheiro de vendas que o ML liberou na conta no mês (já descontadas as tarifas).</li>
-            <li><b>Estornos</b>: valores liberados que o ML tomou de volta (cancelamentos, devoluções, reclamações).</li>
-            <li><b>Líquido de vendas</b> = Liberado + Estornos.</li>
-            <li><b>Cashback</b>: créditos do ML. <b>Faturas ML</b>: pagamento de faturas do ML debitado da conta (tarifas cobradas depois, publicidade). <b>Saques</b>: transferências da conta Mercado Pago para o banco.</li>
-            <li><b>Saldo do mês</b>: soma de todas as colunas = quanto o saldo da conta Mercado Pago variou no mês por essas operações.</li>
-            <li><b>Sem venda na base</b>: liberações cuja venda não está no Vendas ML importado (normalmente vendas de um mês ainda não importado).</li>
-            <li><b>Fora do Extrato MP</b>: liberações de venda que ainda não aparecem no Extrato Mercado Pago importado (liberação + estorno que se anulam não contam). Costuma ser só o período depois do último extrato importado.</li>
+            <li><b>Entradas de vendas</b>: dinheiro de vendas que entrou na conta (já sem tarifas). <b>Débitos de vendas</b>: valores que o ML tomou de volta (devoluções, reclamações, frete de devolução). <b>Líquido de vendas</b> = entradas + débitos.</li>
+            <li><b>Cashback</b>: créditos do ML. <b>Faturas ML</b>: faturas do ML debitadas na conta. <b>Outros</b>: lançamentos que não são de venda, saque ou fatura.</li>
+            <li><b>Saques</b>: transferências da conta Mercado Pago para o banco (resgates).</li>
+            <li><b>Saldo do mês</b>: soma de tudo = quanto o saldo da conta Mercado Pago variou no mês.</li>
           </ul>
         </div>
+
+        <h3 class="secao">Saques por mês e mês de venda a que se referem</h3>
+        <p class="nota">Rateio estimado: cada saque usa primeiro o dinheiro de vendas mais antigo que já tinha entrado na conta (ordem de chegada). O que passar do recebido de vendas aparece como "outros saldos".</p>
+        <div class="bloco"><div id="graf-saques"></div></div>
       </div>
 
       <!-- ANÁLISE -->
@@ -91,9 +91,9 @@
         </div>
         <div id="an-checks" class="checks"></div>
         <div class="an-grade">
-          <section class="bloco"><h3>Da venda ao repasse</h3><div id="an-cascata" class="cascata"></div></section>
-          <section class="bloco"><h3>Tarifas descontadas nas liberações <span class="nota">(coluna "Detalhes de tarifas" do Extrato Mercado Livre)</span></h3><div id="an-tarifas" class="cascata"></div>
-            <p class="nota" style="margin-top:8px">Comissão ML + Parcelamento + Custo Mercado Pago = "Tarifa de venda e impostos" do relatório Vendas ML. Percentuais sobre o GMV.</p></section>
+          <details class="bloco recolher"><summary><h3>Da venda ao repasse</h3><span class="nota">clique para expandir</span></summary><div id="an-cascata" class="cascata"></div></details>
+          <details class="bloco recolher"><summary><h3>Tarifas descontadas nas liberações</h3><span class="nota">clique para expandir</span></summary><div id="an-tarifas" class="cascata"></div>
+            <p class="nota" style="margin-top:8px">Fonte: coluna "Detalhes de tarifas" do Extrato Mercado Livre. Comissão ML + Parcelamento + Custo Mercado Pago = "Tarifa de venda e impostos" do Vendas ML. Percentuais sobre o GMV.</p></details>
         </div>
         <h3 class="secao" id="an-titulo-tab">Detalhamento</h3>
         <p class="nota" id="an-dica"></p>
@@ -135,6 +135,23 @@
           <h2>Importar arquivos</h2>
           <p>Solte aqui os relatórios. O sistema reconhece sozinho cada um, grava o que é novo, atualiza o que mudou (ex.: status da venda) e ignora o que já está igual. Pode reimportar o mesmo arquivo sem duplicar.</p>
         </div>
+        <details class="bloco tutorial" open>
+          <summary><h3>Como gerar os 3 relatórios</h3><span class="nota">mostrar / esconder</span></summary>
+          <ol class="passos">
+            <li><span class="chip vendas">Vendas ML</span>
+              <div>No <b>Mercado Livre</b>: menu <b>Vendas</b> → filtre <b>todos os pedidos</b> do período desejado → exporte o relatório (.xlsx).
+              <span class="nota">Dica: pegue os últimos 60 dias para atualizar vendas que mudaram de status.</span></div></li>
+            <li><span class="chip liberacoes">Extrato Mercado Livre</span>
+              <div>No <b>Mercado Livre</b>: menu <b>Faturamento</b> → <b>Tarifas e pagamentos</b> → <b>Conciliação</b> → <b>Gerar relatório</b> → <b>Por liberação de dinheiro</b>.
+              <span class="nota">Período: desde a última importação, com alguns dias de folga.</span></div></li>
+            <li><span class="chip extrato">Extrato Mercado Pago</span>
+              <div>No <b>Mercado Pago</b>: menu <b>Relatórios</b> → <b>Extrato de conta</b> → <b>Gerar novo relatório</b> → <b>Período personalizado</b>.
+              <span class="nota">Use o mesmo período do Extrato Mercado Livre, até o dia anterior.</span></div></li>
+            <li><span class="chip">Importar</span>
+              <div>Arraste os 3 arquivos juntos na área abaixo e clique em <b>Gravar todos</b>. Pode repetir datas: nada é duplicado. Não abra e salve os arquivos no Excel antes de importar.</div></li>
+          </ol>
+        </details>
+
         <label id="drop" class="drop">
           <input type="file" id="arquivos" multiple accept=".xlsx,.xls,.csv">
           <div class="drop-icone">⬆</div>
@@ -159,17 +176,6 @@
         <div class="tabela-wrap"><table id="tab-historico" class="tabela"></table></div>
       </div>
 
-      <!-- BASE -->
-      <div class="painel" id="aba-base" hidden>
-        <div class="intro"><h2>O que está gravado</h2><p>Linhas e valores por mês em cada fonte.</p></div>
-        <div id="kpis" class="kpis"></div>
-        <div class="tabela-wrap"><table id="tab-base" class="tabela"></table></div>
-        <div id="box-status" class="cartao alerta" hidden>
-          <h3>Status do ML sem classificação</h3>
-          <p>Esses status apareceram nas vendas e ainda não têm ação (Conciliar / NOP / Avaliar). Classifique na aba <b>De-para de status</b>.</p>
-          <table id="tab-status" class="tabela"></table>
-        </div>
-      </div>
     </main>
   </section>
 

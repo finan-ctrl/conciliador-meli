@@ -13,7 +13,7 @@ Reimportar é seguro: linha nova entra, linha que mudou é atualizada (ex.: vend
 ## Estrutura
 
 ```
-index.html    telas (login, Painel, Análise, Divergências, Importar, Histórico, Base)
+index.html    telas (login, Painel, Análise, Divergências, Importar, Histórico, De-para de status)
 style.css
 config.js     URL e chave do Supabase
 parsers.js    leitura e normalização dos 3 arquivos
@@ -42,7 +42,7 @@ Todos os arquivos ficam soltos na raiz do repositório.
 ### 3. Carga inicial
 Na aba **Importar**, arraste os 3 arquivos do pacote `carga-inicial-meli.zip` (fica fora do repositório — não suba planilhas para o GitHub) e clique **Gravar todos**.
 Resultado esperado: 5.197 vendas, 6.524 operações de liberação, 6.968 lançamentos de extrato.
-Confira na aba **Base**.
+Confira no **Painel**.
 
 ### 4. Rotina
 Exporte os relatórios do período (pode sobrepor datas com a importação anterior) e importe. O sistema só grava o que é novo ou mudou.
@@ -73,9 +73,13 @@ Roda sozinha depois de cada importação (ou no botão **Reprocessar conciliaç�
 - **Data da entrega** = coluna "Data de entrega" do Vendas ML (ou "Chegou em…" do status); em devoluções, "O pacote chegou…" = retorno ao vendedor.
 - Pacote "Pacote de N produtos" é conciliado pela linha do pacote (as vendas filhas repetem os valores), mas conta como N vendas.
 - **Todas as contagens são por venda (pedido), nunca por linha do relatório.**
-- Situações: Conciliado · Aguardando liberação · Aguardando Extrato MP · Fora do Extrato MP · Recebido a menor · Sem repasse · Recebido a maior · Em andamento (devolução/reclamação aberta) · Status novo.
+- Ação NOP (cancelada/devolvida) é definitiva: situação *Cancelada/devolvida*, nunca entra em divergência.
+- Desconto pago pelo vendedor (cupom/campanha) = receita + componentes − Total; venda vai para *Com cupom/desconto* e a comissão é calculada sobre o preço com desconto.
+- Situações: Conciliado · Aguardando liberação · Aguardando Extrato MP · Fora do Extrato MP · Recebido a menor · Sem repasse · Recebido a maior · Com cupom/desconto · Em andamento · Status novo · Cancelada/devolvida.
+- Fila de Divergências por visões: A tratar (tudo que não está conciliado, inclusive aguardando e em andamento) · Resolvidas · Conciliadas · Canceladas/devolvidas · Todas. Esperado = GMV − tarifas; em venda com cupom a diferença mostra o cupom.
+- De-para de status editável na aba **De-para de status**.
 - Comissão cobrada × `comissao_tabela` (não vale para devoluções, cuja tarifa inclui o frete de retorno).
-- Revisão manual (Resolvido / Contestado no ML / Reabrir) com justificativa; se o valor mudar depois, a revisão aparece como desatualizada.
+- Revisão manual (Resolvido / Contestado no ML / Reabrir) com data da ação e justificativa obrigatórias; se o valor mudar depois, a revisão aparece como desatualizada.
 - Ajustes em `parametros` (tolerância R$, dias de espera da liberação) e `comissao_tabela` pelo Table Editor.
 
 ## Análise

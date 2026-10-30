@@ -62,7 +62,6 @@
     if (nome === 'divergencias') carregarDivergencias();
     if (nome === 'analise') carregarAnalise();
     if (nome === 'historico') carregarHistorico();
-    if (nome === 'base') carregarBase();
     if (nome === 'status') carregarStatus();
   }
   $$('.aba').forEach((b) => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
@@ -233,42 +232,6 @@
         <td>${esc(i.usuario_email || '')}</td></tr>`).join('') + '</tbody>';
   }
 
-  // ------------------------------------------------------------ base
-  async function carregarBase() {
-    const t = $('#tab-base');
-    t.innerHTML = '<tr><td class="vazio">Carregando…</td></tr>';
-    const [{ data, error }, st] = await Promise.all([
-      sb.from('resumo_base').select('*'),
-      sb.from('status_nao_mapeados').select('*'),
-    ]);
-    if (error) { t.innerHTML = `<tr><td class="vazio">${esc(error.message)}</td></tr>`; return; }
-
-    const fontes = ['vendas', 'liberacoes', 'extrato'];
-    const meses = [...new Set(data.map((d) => d.mes))].sort((a, b) => (a || '9999').localeCompare(b || '9999'));
-    const idx = {}; data.forEach((d) => { idx[d.fonte + '|' + d.mes] = d; });
-    const tot = {}; fontes.forEach((f) => { tot[f] = { linhas: 0, valor: 0 }; });
-    data.forEach((d) => { d.linhas = Number(d.linhas); d.valor = Number(d.valor || 0); tot[d.fonte].linhas += d.linhas; tot[d.fonte].valor += d.valor; });
-
-    const rot = { vendas: ['Vendas', 'GMV'], liberacoes: ['Operações', 'Líquido de vendas (liberações − estornos)'], extrato: ['Lançamentos', 'Movimento líquido'] };
-    $('#kpis').innerHTML = fontes.map((f) => `<div class="kpi ${f}"><span>${NOMES[f]} · ${rot[f][0]}</span><b>${int(tot[f].linhas)}</b><span>${rot[f][1]}: ${brl(tot[f].valor)}</span></div>`).join('');
-
-    if (!data.length) { t.innerHTML = '<tr><td class="vazio">Base vazia. Importe os arquivos na aba Importar.</td></tr>'; }
-    else {
-      const UNID = { vendas: 'vendas', liberacoes: 'operações', extrato: 'lançamentos' };
-    t.innerHTML = `<thead><tr><th>Mês</th>${fontes.map((f) => `<th class="n">${NOMES[f]} · ${UNID[f]}</th><th class="n">${NOMES[f]} · valor</th>`).join('')}</tr></thead><tbody>` +
-        meses.map((m) => `<tr><td>${mesBR(m)}</td>${fontes.map((f) => {
-          const d = idx[f + '|' + m];
-          return `<td class="n">${d ? int(d.linhas) : '—'}</td><td class="n">${d ? brl(Number(d.valor)) : '—'}</td>`;
-        }).join('')}</tr>`).join('') +
-        `</tbody><tfoot><tr><td>Total</td>${fontes.map((f) => `<td class="n">${int(tot[f].linhas)}</td><td class="n">${brl(tot[f].valor)}</td>`).join('')}</tr></tfoot>`;
-    }
-
-    const box = $('#box-status');
-    const sn = st.data || [];
-    box.hidden = !sn.length;
-    $('#tab-status').innerHTML = '<thead><tr><th>Status</th><th class="n">Vendas</th></tr></thead><tbody>' +
-      sn.map((s) => `<tr><td>${esc(s.status)}</td><td class="n">${int(s.vendas)}</td></tr>`).join('') + '</tbody>';
-  }
   // ================================================================ FASE 2
   const SIT = {
     a_menor: 'Recebido a menor', sem_repasse: 'Sem repasse', sem_extrato: 'Fora do Extrato MP', a_maior: 'Recebido a maior',
@@ -276,12 +239,10 @@
     aguardando_extrato: 'Aguardando Extrato MP', contestado: 'Contestado no ML', resolvido: 'Resolvido', conciliado: 'Conciliado',
     com_desconto: 'Com cupom/desconto', nop: 'Cancelada/devolvida',
   };
-  // Visões da fila: "A tratar" = tudo que precisa de ação
+  // Visões da fila: "A tratar" = tudo que não está conciliado, resolvido ou cancelado (em andamento também é tratar)
   const VISOES = [
-    { k: 'tratar', rot: 'A tratar', sits: ['a_menor', 'sem_repasse', 'sem_extrato', 'a_maior', 'com_desconto', 'status_novo'] },
-    { k: 'aguardando', rot: 'Aguardando', sits: ['aguardando', 'aguardando_extrato'] },
-    { k: 'andamento', rot: 'Em andamento', sits: ['em_andamento'] },
-    { k: 'revisadas', rot: 'Revisadas', sits: ['contestado', 'resolvido'] },
+    { k: 'tratar', rot: 'A tratar', sits: ['a_menor', 'sem_repasse', 'sem_extrato', 'a_maior', 'com_desconto', 'status_novo', 'em_andamento', 'aguardando', 'aguardando_extrato', 'contestado'] },
+    { k: 'resolvidas', rot: 'Resolvidas', sits: ['resolvido'] },
     { k: 'conciliadas', rot: 'Conciliadas', sits: ['conciliado'] },
     { k: 'nop', rot: 'Canceladas/devolvidas', sits: ['nop'] },
     { k: 'todas', rot: 'Todas', sits: [] },
@@ -307,7 +268,7 @@
     const div = SIT_TRATAR.reduce((a, k) => a + (data[k] || 0), 0);
     if (alvoMsg) {
       alvoMsg.className = 'msg ok';
-      alvoMsg.textContent = `✓ Conciliação atualizada: ${int(data.conciliado)} conciliadas · ${int(div)} a tratar · ${int((data.aguardando || 0) + (data.aguardando_extrato || 0))} aguardando · ${int(data.nop)} canceladas/devolvidas.`;
+      alvoMsg.textContent = `✓ Conciliação atualizada: ${int(data.conciliado)} conciliadas · ${int(div)} a tratar (${int((data.aguardando || 0) + (data.aguardando_extrato || 0))} aguardando, ${int(data.em_andamento || 0)} em andamento) · ${int(data.nop)} canceladas/devolvidas.`;
     }
     atualizarBadge();
     return data;
@@ -331,9 +292,10 @@
   async function carregarPainel(manterInfo) {
     const tv = $('#tab-mes-venda'); const tr = $('#tab-mes-receb');
     tv.innerHTML = tr.innerHTML = '<tr><td class="vazio">Carregando…</td></tr>';
-    const [pv, pr, ex] = await Promise.all([
+    const [pv, pe, rr, ex] = await Promise.all([
       sb.from('painel_mes_venda').select('*').order('mes_venda'),
-      sb.from('painel_mes_recebimento').select('*').order('mes_liberacao'),
+      sb.from('painel_extrato_mes').select('*').order('mes'),
+      sb.from('recebido_mes_venda').select('*').order('mes_venda').range(0, 4999),
       sb.from('conciliacao_execucoes').select('*').order('id', { ascending: false }).limit(1),
     ]);
     if (pv.error) { tv.innerHTML = `<tr><td class="vazio">${esc(pv.error.message)}</td></tr>`; return; }
@@ -343,9 +305,10 @@
     if (!manterInfo) {
       $('#info-conc').className = 'msg';
       $('#info-conc').textContent = ult
-        ? `Última conciliação: ${new Date(ult.executado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · liberações importadas até ${dataBR(ult.resumo && ult.resumo.data_referencia)}`
+        ? `Última conciliação: ${new Date(ult.executado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · Extrato Mercado Pago importado até ${dataBR(ult.resumo && ult.resumo.extrato_ate)}`
         : 'A conciliação ainda não foi executada. Clique em "Reprocessar conciliação".';
     }
+    const RR = (rr.data || []).map((r) => ({ mv: r.mes_venda, mr: r.mes_recebimento, v: Number(r.valor || 0) }));
 
     const L = (pv.data || []).map((r) => { const o = {}; for (const [k, v] of Object.entries(r)) o[k] = k === 'mes_venda' ? v : Number(v || 0); return o; });
     if (!L.length) {
@@ -355,53 +318,108 @@
       const T = {}; L.forEach((r) => Object.entries(r).forEach(([k, v]) => { if (k !== 'mes_venda') T[k] = (T[k] || 0) + v; }));
       const ativas = T.vendas - T.canceladas;
       $('#kpis-painel').innerHTML = `
-        <div class="kpi"><span>Vendas no período</span><b>${int(T.vendas)}</b><small>GMV ${brl(T.gmv)} · ${int(T.canceladas)} canceladas/devolvidas</small></div>
-        <div class="kpi"><span>Tarifas do ML</span><b>${pct(-T.tarifas, T.gmv_efetivo)}</b><small>${brl(-T.tarifas)} sobre o GMV efetivo (${brl(T.gmv_efetivo)})</small></div>
-        <div class="kpi ok"><span>Conciliadas</span><b>${pct(T.conciliadas, ativas)}</b><small>${int(T.conciliadas)} de ${int(ativas)} vendas ativas (sem canceladas/devolvidas)</small></div>
-        <div class="kpi err"><span>A tratar</span><b>${int(T.a_tratar)}</b><small>${brl(-T.valor_divergente)} a receber · ${int(T.com_desconto)} com cupom/desconto</small></div>
-        <div class="kpi info"><span>Aguardando liberação / extrato</span><b>${int(T.aguardando)}</b><small>${brl(T.valor_aguardando)} previstos</small></div>
+        <div class="kpi"><span>Vendas no período</span><b>${int(T.vendas)}</b><small><span style="color:var(--err)">${int(T.canceladas)} canceladas/devolvidas</span> · <span style="color:var(--ok)">${int(ativas)} válidas</span></small></div>
+        <div class="kpi"><span>GMV efetivo</span><b>${brl(T.gmv_efetivo)}</b><small>total ${brl(T.gmv)} · tarifas ${pct(-T.tarifas, T.gmv_efetivo)}</small></div>
+        <div class="kpi ok"><span>Conciliadas</span><b>${pct(T.conciliadas, ativas)}</b><small>${int(T.conciliadas)} de ${int(ativas)} vendas válidas</small></div>
+        <div class="kpi err"><span>A tratar</span><b>${int(T.a_tratar)}</b><small>tudo que não está conciliado · diferença ${brl(T.valor_a_tratar)}</small></div>
+        <div class="kpi"><span>Resolvidas</span><b>${int(T.resolvidas)}</b><small>revisadas e encerradas</small></div>
         <div class="kpi"><span>Canceladas/devolvidas (NOP)</span><b>${int(T.nop)}</b><small>situação definitiva, sem ação</small></div>`;
       const lk = (n, mes, sits) => (n ? `<a class="num" data-mes="${mes || ''}" data-sit="${sits}">${int(n)}</a>` : '<span class="nota">0</span>');
       const linha = (r, total) => {
         const mes = total ? '' : r.mes_venda;
-        return `<tr${total ? ' class="tot"' : ''}>
-          <td>${total ? 'Total' : mesBR(r.mes_venda)}</td>
-          <td class="n">${int(r.vendas)}<small class="sub2">${int(r.canceladas)} canc.</small></td>
-          <td class="n">${brl(r.gmv)}<small class="sub2">efetivo ${brl(r.gmv_efetivo)}</small></td>
-          <td class="n">${brl(r.esperado)}<small class="sub2">tarifas ${pct(-r.tarifas, r.gmv_efetivo)}</small></td><td class="n">${brl(r.recebido)}<small class="sub2">liberado ${brl(r.liberado)}</small></td>
+        const sub = [r.aguardando ? `${int(r.aguardando)} aguardando` : '', r.em_andamento ? `${int(r.em_andamento)} em andamento` : ''].filter(Boolean).join(' · ');
+        return `<tr${total ? ' class="tot"' : ` data-mes-linha="${r.mes_venda}"`}>
+          <td>${total ? 'Total' : `<button class="mes-btn" data-mes="${r.mes_venda}" aria-expanded="false">▸ ${mesBR(r.mes_venda)}</button>`}</td>
+          <td class="n"><span class="v-tot">${int(r.vendas)}</span><span class="v-canc">− ${int(r.canceladas)} canc.</span><span class="v-val">= ${int(r.vendas - r.canceladas)} válidas</span></td>
+          <td class="n"><b>${brl(r.gmv_efetivo)}</b><small class="sub2">total ${brl(r.gmv)}</small></td>
+          <td class="n">${brl(r.esperado)}<small class="sub2">tarifas ${pct(-r.tarifas, r.gmv_efetivo)}</small></td>
+          <td class="n">${brl(r.recebido)}<small class="sub2">liberado ${brl(r.liberado)}</small></td>
           <td class="n">${lk(r.conciliadas, mes, 'conciliado')}</td>
-          <td class="n">${lk(r.aguardando, mes, 'aguardando,aguardando_extrato')}</td>
-          <td class="n">${lk(r.a_tratar, mes, SIT_TRATAR.join(','))}${r.valor_divergente ? `<small class="sub2">${brlCor(r.valor_divergente)}</small>` : ''}</td>
-          <td class="n">${lk(r.em_andamento, mes, 'em_andamento')}</td>
+          <td class="n">${lk(r.a_tratar, mes, SIT_TRATAR.join(','))}${sub ? `<small class="sub2">${sub}</small>` : ''}</td>
           <td class="n">${lk(r.nop, mes, 'nop')}</td>
-          <td class="n">${lk(r.contestadas + r.resolvidas, mes, 'contestado,resolvido')}</td>
+          <td class="n">${lk(r.resolvidas, mes, 'resolvido')}</td>
         </tr>`;
       };
-      tv.innerHTML = `<thead><tr><th>Mês da venda</th><th class="n">Vendas</th><th class="n">GMV</th>
-        <th class="n">Líquido esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">Recebido (Extrato MP)</th><th class="n">Conciliadas</th><th class="n">Aguardando</th>
-        <th class="n" title="Recebido a menor, sem repasse, fora do Extrato MP, a maior, com cupom/desconto, status novo">A tratar</th><th class="n">Em andamento</th><th class="n" title="Canceladas ou devolvidas: situação definitiva">Canceladas/ devolvidas</th><th class="n">Revisadas</th></tr></thead>
+      tv.innerHTML = `<thead><tr><th>Mês da venda</th><th class="n">Vendas</th><th class="n" title="Em cima o GMV efetivo (sem canceladas/devolvidas), embaixo o total">GMV efetivo</th>
+        <th class="n">Líquido esperado</th><th class="n" title="Entrou no Extrato Mercado Pago">Recebido (Extrato MP)</th><th class="n">Conciliadas</th>
+        <th class="n" title="Tudo que não está conciliado, resolvido ou cancelado">A tratar</th><th class="n">Canceladas/ devolvidas</th><th class="n">Resolvidas</th></tr></thead>
         <tbody>${L.map((r) => linha(r)).join('')}</tbody><tfoot>${linha(T, true)}</tfoot>`;
       $$('a.num', tv).forEach((a) => a.addEventListener('click', () => {
         const sits = a.dataset.sit.split(',');
-        filtro.visao = (VISOES.find((v) => v.sits.includes(sits[0])) || VISOES.at(-1)).k;
+        filtro.visao = (VISOES.find((v) => v.sits.length && sits.every((s) => v.sits.includes(s))) || VISOES.at(-1)).k;
         filtro.sits = new Set(sits); filtro.mes = a.dataset.mes; filtro.pag = 0;
         abrirAba('divergencias');
       }));
+      $$('.mes-btn', tv).forEach((b) => b.addEventListener('click', () => {
+        const tr0 = b.closest('tr'); const aberto = tr0.nextElementSibling && tr0.nextElementSibling.classList.contains('rateio');
+        if (aberto) { tr0.nextElementSibling.remove(); b.textContent = '▸ ' + mesBR(b.dataset.mes); b.setAttribute('aria-expanded', 'false'); return; }
+        const itens = RR.filter((x) => x.mv === b.dataset.mes).sort((x, y) => x.mr.localeCompare(y.mr));
+        const tot = itens.reduce((a, x) => a + x.v, 0);
+        const max = Math.max(1, ...itens.map((x) => Math.abs(x.v)));
+        const linhaR = document.createElement('tr'); linhaR.className = 'rateio';
+        linhaR.innerHTML = `<td colspan="9"><div class="rateio-box">
+          <div class="tit">Vendas de <b>${mesBR(b.dataset.mes)}</b>: ${brl(tot)} recebidos no Extrato Mercado Pago, entrando assim:</div>
+          ${itens.length ? itens.map((x) => `<div class="rateio-lin"><span>${mesBR(x.mr)}</span><div class="trilho"><div class="barra-c" style="width:${(100 * Math.abs(x.v) / max).toFixed(1)}%"></div></div><span class="val">${brl(x.v)}</span><span class="pc">${pct(x.v, tot)}</span></div>`).join('') : '<span class="nota">Nada recebido ainda.</span>'}
+        </div></td>`;
+        tr0.after(linhaR); b.textContent = '▾ ' + mesBR(b.dataset.mes); b.setAttribute('aria-expanded', 'true');
+      }));
     }
 
-    const R = (pr.data || []).map((r) => { const o = {}; for (const [k, v] of Object.entries(r)) o[k] = k === 'mes_liberacao' ? v : Number(v || 0); return o; });
-    if (!R.length) { tr.innerHTML = '<tr><td class="vazio">Sem liberações importadas.</td></tr>'; return; }
-    const TR = {}; R.forEach((r) => Object.entries(r).forEach(([k, v]) => { if (k !== 'mes_liberacao') TR[k] = (TR[k] || 0) + v; }));
-    const lr = (r, total) => `<tr><td>${total ? 'Total' : mesBR(r.mes_liberacao)}</td>
-      <td class="n">${brl(r.liberado)}</td><td class="n">${brl(r.estornos)}</td><td class="n"><b>${brl(r.liquido_vendas)}</b></td>
-      <td class="n">${brl(r.cashback)}</td><td class="n">${brl(r.faturas)}</td><td class="n">${brl(r.saques)}</td>
-      <td class="n"><b>${brl(r.saldo_mes)}</b></td>
-      <td class="n">${brl(r.sem_venda)}${r.qtd_sem_venda && Math.abs(r.sem_venda) >= 0.01 ? `<small class="sub2">${int(r.qtd_sem_venda)} operações</small>` : ''}</td>
-      <td class="n">${brl(r.valor_sem_extrato)}${r.qtd_sem_extrato ? `<small class="sub2">${int(r.qtd_sem_extrato)} liberações</small>` : ''}</td></tr>`;
-    tr.innerHTML = `<thead><tr><th>Mês da liberação</th><th class="n">Liberado</th><th class="n">Estornos</th><th class="n">Líquido de vendas</th>
-      <th class="n">Cashback</th><th class="n">Faturas ML</th><th class="n">Saques</th><th class="n">Saldo do mês</th><th class="n">Sem venda na base</th>
-      <th class="n">Fora do Extrato MP</th></tr></thead>
-      <tbody>${R.map((r) => lr(r)).join('')}</tbody><tfoot>${lr(TR, true)}</tfoot>`;
+    // ---- quadro do Extrato Mercado Pago
+    const E = (pe.data || []).map((r) => { const o = {}; for (const [k, v] of Object.entries(r)) o[k] = k === 'mes' ? v : Number(v || 0); return o; });
+    if (!E.length) { tr.innerHTML = '<tr><td class="vazio">Sem Extrato Mercado Pago importado.</td></tr>'; $('#graf-saques').innerHTML = ''; return; }
+    const TE = {}; E.forEach((r) => Object.entries(r).forEach(([k, v]) => { if (k !== 'mes') TE[k] = (TE[k] || 0) + v; }));
+    const le = (r, total) => `<tr${total ? ' class="tot"' : ''}><td>${total ? 'Total' : mesBR(r.mes)}</td>
+      <td class="n">${brl(r.entradas_vendas)}</td><td class="n">${brl(r.debitos_vendas)}</td><td class="n"><b>${brl(r.liquido_vendas)}</b></td>
+      <td class="n">${brl(r.cashback)}</td><td class="n">${brl(r.faturas)}</td><td class="n">${brl(r.outros)}</td><td class="n">${brl(r.saques)}</td>
+      <td class="n"><b>${brl(r.saldo_mes)}</b></td></tr>`;
+    tr.innerHTML = `<thead><tr><th>Mês</th><th class="n">Entradas de vendas</th><th class="n">Débitos de vendas</th><th class="n">Líquido de vendas</th>
+      <th class="n">Cashback</th><th class="n">Faturas ML</th><th class="n">Outros</th><th class="n">Saques</th><th class="n">Saldo do mês</th></tr></thead>
+      <tbody>${E.map((r) => le(r)).join('')}</tbody><tfoot>${le(TE, true)}</tfoot>`;
+
+    desenharSaques(E, RR);
+  }
+
+  // Saques × mês de venda: cada saque consome primeiro o dinheiro de vendas mais antigo já recebido (FIFO)
+  function desenharSaques(E, RR) {
+    const fila = RR.filter((x) => x.v > 0).map((x) => ({ ...x })).sort((a, b) => a.mr.localeCompare(b.mr) || a.mv.localeCompare(b.mv));
+    const meses = E.map((r) => r.mes).sort();
+    const mesesVenda = [...new Set(RR.map((x) => x.mv))].sort();
+    const aloc = {}; // aloc[mesSaque][mesVenda]
+    for (const m of meses) {
+      let resta = -(E.find((r) => r.mes === m).saques || 0);
+      aloc[m] = {};
+      for (const it of fila) {
+        if (resta <= 0.005) break;
+        if (it.mr > m || it.v <= 0.005) continue;
+        const usa = Math.min(resta, it.v);
+        aloc[m][it.mv] = (aloc[m][it.mv] || 0) + usa; it.v -= usa; resta -= usa;
+      }
+      if (resta > 0.005) aloc[m].outros = resta;
+    }
+    const chaves = [...mesesVenda, 'outros'];
+    const cores = ['#2a6fb0', '#3f9d6b', '#c08a1e', '#7b5bc4', '#c4553a', '#2a9bb0', '#8a8f3c', '#b0477f', '#5a6b7d', '#9a7b52', '#4f7fd1', '#3da38f'];
+    const cor = (k) => (k === 'outros' ? '#b8c0ca' : cores[mesesVenda.indexOf(k) % cores.length]);
+    const totais = meses.map((m) => Object.values(aloc[m]).reduce((a, x) => a + x, 0));
+    const max = Math.max(1, ...totais);
+    const W = 1100, H = 250, x0 = 20, y0 = 24, ph = 196, bw = Math.min(90, (W - x0 - 20) / meses.length * 0.6), passo = (W - x0 - 20) / meses.length;
+    let barras = '';
+    meses.forEach((m, i) => {
+      let y = y0 + ph; const x = x0 + i * passo + (passo - bw) / 2;
+      chaves.forEach((k) => {
+        const v = aloc[m][k] || 0; if (v <= 0.005) return;
+        const h = (v / max) * ph; y -= h;
+        barras += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h - 1, 0.5).toFixed(1)}" fill="${cor(k)}" rx="2"><title>Saque de ${mesBR(m)} · vendas de ${k === 'outros' ? 'outros saldos' : mesBR(k)}: ${brl(v)}</title></rect>`;
+      });
+      barras += `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--ink)">${(totais[i] / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} mil</text>`;
+      barras += `<text x="${(x + bw / 2).toFixed(1)}" y="${y0 + ph + 16}" text-anchor="middle" font-size="11.5" fill="var(--ink-2)">${mesBR(m)}</text>`;
+    });
+    const tab = `<div class="tabela-wrap" style="margin-top:12px"><table class="tabela mini"><thead><tr><th>Saque em</th>${chaves.filter((k) => meses.some((m) => aloc[m][k])).map((k) => `<th class="n">${k === 'outros' ? 'Outros saldos' : 'Vendas ' + mesBR(k)}</th>`).join('')}<th class="n">Total sacado</th></tr></thead><tbody>
+      ${meses.map((m, i) => `<tr><td>${mesBR(m)}</td>${chaves.filter((k) => meses.some((mm) => aloc[mm][k])).map((k) => `<td class="n">${aloc[m][k] ? brl(aloc[m][k]) : '<span class="nota">—</span>'}</td>`).join('')}<td class="n"><b>${brl(totais[i])}</b></td></tr>`).join('')}
+      </tbody></table></div>`;
+    $('#graf-saques').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Saques por mês, divididos pelo mês de venda de origem" style="width:100%;height:auto;max-height:300px">
+      <line x1="${x0}" x2="${W - 20}" y1="${y0 + ph}" y2="${y0 + ph}" stroke="var(--line)"/>${barras}</svg>
+      <div class="graf-legenda">${chaves.filter((k) => meses.some((m) => aloc[m][k])).map((k) => `<span><i style="background:${cor(k)}"></i>${k === 'outros' ? 'Outros saldos' : 'Vendas de ' + mesBR(k)}</span>`).join('')}</div>${tab}`;
   }
 
   // ---------------------------------------------------------- divergências
@@ -624,7 +642,6 @@
           <h3>Esperado × recebido</h3>
           <div class="conta">
             ${linhaConta('GMV (receita de produtos)', V.receita_produtos)}
-            ${n(C.desconto_vendedor) ? `<span>Desconto pago pelo vendedor (${esc(C.tipo_desconto || 'cupom/campanha')}) <span class="nota">· não vem detalhado no Vendas ML</span></span><span>${brl(-n(C.desconto_vendedor))}</span>` : ''}
             ${linhaConta('Acréscimo pago pelo comprador', V.receita_acrescimo)}
             ${linhaConta('Taxa de parcelamento', V.taxa_parcelamento)}
             ${linhaConta('Tarifa de venda e impostos', V.tarifa_venda)}
@@ -633,11 +650,12 @@
             ${linhaConta('Diferença de peso/medidas', V.custo_diferenca_peso)}
             ${linhaConta('Descontos e bônus', V.descontos_bonus)}
             ${linhaConta('Cancelamentos e reembolsos', V.cancelamentos_reembolsos)}
-            <span class="tot">Esperado (Total do Vendas ML)</span><span class="tot">${brl(n(C.esperado))}</span>
+            <span class="tot">Esperado (GMV − tarifas)</span><span class="tot">${brl(n(C.esperado))}</span>
             <span>Liberado (Extrato Mercado Livre)</span><span>${brl(n(C.repasse))}</span>
             <span><b>Recebido (Extrato Mercado Pago)</b></span><span><b>${C.qtd_extrato ? brl(n(C.recebido)) : '—'}</b></span>
             <span class="tot">Diferença (recebido − esperado)</span><span class="tot">${brlCor(C.diferenca)}</span>
           </div>
+          ${n(C.desconto_vendedor) ? `<div class="explica-desc"><span>Desconto pago pelo vendedor (${esc(C.tipo_desconto || 'Cupom')})</span><b>${brl(-n(C.desconto_vendedor))}</b><small>${Math.abs(n(C.diferenca) + n(C.desconto_vendedor)) < 0.05 ? 'explica a diferença: o ML repassou o valor já com o desconto' : 'explica parte da diferença'} · o Vendas ML não traz o cupom em coluna própria</small></div>` : ''}
           <p class="nota" style="margin-top:8px">A venda confere quando o valor que <b>entrou no Extrato Mercado Pago</b> é igual ao esperado.</p>
         </div>
       </div>
@@ -813,9 +831,9 @@
 
   function desenharChecks(T) {
     const pill = (ok, txt, nivel) => `<span class="check-pill ${ok ? 'ok' : nivel}"><span class="ic">${ok ? '✓' : '⚠'}</span>${txt}</span>`;
-    const div = (T.divergentes || 0) - (T.com_desconto || 0); const maior = T.a_maior || 0;
+    const div = T.divergentes || 0; const maior = T.a_maior || 0;
     $('#an-checks').innerHTML = [
-      pill(!div, div ? `${int(div)} venda(s) com repasse a menor ou sem repasse` : `Repasse confere em ${pctN(T.conciliadas, T.vendas)} das vendas`, 'erro'),
+      pill(!div, div ? `${int(div)} venda(s) a tratar (tudo que não está conciliado)` : `Repasse confere em ${pctN(T.conciliadas, T.vendas)} das vendas`, 'erro'),
       pill(!maior, maior ? `${int(maior)} venda(s) recebidas a maior` : 'Nenhum repasse a maior', 'alerta'),
       pill(!T.com_desconto, T.com_desconto ? `${int(T.com_desconto)} venda(s) com cupom/desconto a conferir` : 'Nenhum desconto do vendedor a conferir', 'alerta'),
       pill(!T.comissao_acima, T.comissao_acima ? `${int(T.comissao_acima)} venda(s) com comissão acima da tabela` : 'Comissão dentro da tabela', 'erro'),
@@ -842,7 +860,6 @@
       { rot: 'GMV (todas as vendas)', v: gmv, pos: true, cls: 'forte' },
       { rot: '− Vendas canceladas/devolvidas', v: -((T.gmv || 0) - (T.receita || 0)), cls: 'sub' },
       { rot: '= GMV efetivo', v: T.receita, pos: true },
-      { rot: '− Descontos pagos pelo vendedor (cupom/campanha)', v: -(T.desconto || 0), cls: 'sub' },
       { rot: '− Comissão e taxas ML', v: T.comissao, cls: 'sub' },
       { rot: '− Frete', v: T.frete, cls: 'sub' },
       { rot: '± Outros (acréscimos, descontos, peso)', v: T.outros, cls: 'sub' },
@@ -852,7 +869,7 @@
       { rot: 'Recebido (Extrato Mercado Pago)', v: T.recebido, pos: true },
       { rot: 'Diferença', v: T.diferenca, html: brlCor(T.diferenca), semPct: true, cls: 'forte' },
       ...[['· aguardando liberação/extrato', T.dif_aguardando], ['· em devolução/reclamação', T.dif_em_andamento],
-          ['· divergente (cobrar do ML)', T.dif_divergente], ['· recebido a maior', T.dif_a_maior], ['· já revisado', T.dif_revisada],
+          ['· divergente (cobrar do ML)', T.dif_divergente], ['· cupom/desconto do vendedor', T.desconto], ['· recebido a maior', T.dif_a_maior], ['· já revisado', T.dif_revisada],
           ['· canceladas/devolvidas (sem ação)', T.dif_nop]]
         .filter(([, v]) => Math.abs(v || 0) >= 0.005)
         .map(([rot, v]) => ({ rot, v, html: brlCor(v), semPct: true, cls: 'sub' })),
