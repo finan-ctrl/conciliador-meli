@@ -547,6 +547,13 @@
   function alertaInline(m) { $('#pag-div').hidden = false; $('#pag-div').textContent = 'Erro: ' + m; }
 
   // ---------------------------------------------------------- detalhe
+  let toastT;
+  function toast(txt) {
+    let el = $('#toast');
+    if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    el.textContent = txt; el.classList.add('vis');
+    clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('vis'), 4000);
+  }
   const fecharDetalhe = () => { $('#drawer').hidden = true; $('#drawer-fundo').hidden = true; document.body.classList.remove('modal-aberto'); };
   $('#dw-fechar').addEventListener('click', fecharDetalhe);
   $('#drawer-fundo').addEventListener('click', fecharDetalhe);
@@ -724,8 +731,11 @@
         diferenca_na_revisao: n(C.diferenca), situacao_na_revisao: C.situacao, usuario_email: usuario?.email || null,
       });
       if (error) { msg.className = 'msg erro'; msg.textContent = error.message; return; }
-      await abrirDetalhe(numero);
-      if (!$('#aba-divergencias').hidden) carregarDivergencias();
+      fecharDetalhe();
+      const ROT = { resolvido: 'resolvida', contestado: 'marcada como contestada no ML', reaberto: 'reaberta' };
+      toast(`✓ Venda ${numero} ${ROT[fd.get('decisao')] || 'revisada'} em ${dataAcao.split('-').reverse().join('/')}.`);
+      if (!$('#aba-divergencias').hidden) { prepararFiltros(); carregarDivergencias(); }
+      if (!$('#aba-analise').hidden) carregarAnalise();
       atualizarBadge();
     });
   }
