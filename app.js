@@ -386,14 +386,17 @@
     const meses = E.map((r) => r.mes).sort();
     const mesesVenda = [...new Set(RR.map((x) => x.mv))].sort();
     const aloc = {}; // aloc[mesSaque][mesVenda]
+    // teto = recebido líquido do mês de venda (já descontadas devoluções), para o sacado nunca passar do recebido
+    const teto = {}; RR.forEach((x) => { teto[x.mv] = (teto[x.mv] || 0) + x.v; });
     for (const m of meses) {
       let resta = -(E.find((r) => r.mes === m).saques || 0);
       aloc[m] = {};
       for (const it of fila) {
         if (resta <= 0.005) break;
         if (it.mr > m || it.v <= 0.005) continue;
-        const usa = Math.min(resta, it.v);
-        aloc[m][it.mv] = (aloc[m][it.mv] || 0) + usa; it.v -= usa; resta -= usa;
+        const usa = Math.min(resta, it.v, Math.max(0, teto[it.mv]));
+        if (usa <= 0.005) continue;
+        aloc[m][it.mv] = (aloc[m][it.mv] || 0) + usa; it.v -= usa; resta -= usa; teto[it.mv] -= usa;
       }
       if (resta > 0.005) aloc[m].outros = resta;
     }
@@ -414,9 +417,15 @@
       barras += `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--ink)">${(totais[i] / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} mil</text>`;
       barras += `<text x="${(x + bw / 2).toFixed(1)}" y="${y0 + ph + 16}" text-anchor="middle" font-size="11.5" fill="var(--ink-2)">${mesBR(m)}</text>`;
     });
+    const cols = chaves.filter((k) => meses.some((m) => aloc[m][k]));
+    const recMv = (k) => RR.filter((x) => x.mv === k).reduce((t, x) => t + x.v, 0);
     const tab = `<div class="tabela-wrap" style="margin-top:12px"><table class="tabela mini"><thead><tr><th>Saque em</th>${chaves.filter((k) => meses.some((m) => aloc[m][k])).map((k) => `<th class="n">${k === 'outros' ? 'Outros saldos' : 'Vendas ' + mesBR(k)}</th>`).join('')}<th class="n">Total sacado</th></tr></thead><tbody>
       ${meses.map((m, i) => `<tr><td>${mesBR(m)}</td>${chaves.filter((k) => meses.some((mm) => aloc[mm][k])).map((k) => `<td class="n">${aloc[m][k] ? brl(aloc[m][k]) : '<span class="nota">—</span>'}</td>`).join('')}<td class="n"><b>${brl(totais[i])}</b></td></tr>`).join('')}
-      </tbody></table></div>`;
+      </tbody><tfoot>
+      <tr class="tot"><td>Total sacado</td>${cols.map((k) => `<td class="n">${brl(meses.reduce((t, m) => t + (aloc[m][k] || 0), 0))}</td>`).join('')}<td class="n">${brl(totais.reduce((t, x) => t + x, 0))}</td></tr>
+      <tr><td title="Mesmo valor da coluna Recebido (Extrato MP) do quadro Por mês de venda">Recebido no mês de venda</td>${cols.map((k) => `<td class="n">${k === 'outros' ? '<span class="nota">—</span>' : brl(recMv(k))}</td>`).join('')}<td class="n">${brl(cols.filter((k) => k !== 'outros').reduce((t, k) => t + recMv(k), 0))}</td></tr>
+      <tr><td>Ainda na conta</td>${cols.map((k) => `<td class="n">${k === 'outros' ? '<span class="nota">—</span>' : brl(recMv(k) - meses.reduce((t, m) => t + (aloc[m][k] || 0), 0))}</td>`).join('')}<td class="n">${brl(cols.filter((k) => k !== 'outros').reduce((t, k) => t + recMv(k) - meses.reduce((u, m) => u + (aloc[m][k] || 0), 0), 0))}</td></tr>
+      </tfoot></table></div>`;
     $('#graf-saques').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Saques por mês, divididos pelo mês de venda de origem" style="width:100%;height:auto;max-height:300px">
       <line x1="${x0}" x2="${W - 20}" y1="${y0 + ph}" y2="${y0 + ph}" stroke="var(--line)"/>${barras}</svg>
       <div class="graf-legenda">${chaves.filter((k) => meses.some((m) => aloc[m][k])).map((k) => `<span><i style="background:${cor(k)}"></i>${k === 'outros' ? 'Outros saldos' : 'Vendas de ' + mesBR(k)}</span>`).join('')}</div>${tab}`;
